@@ -1,0 +1,3 @@
+#!/bin/bash
+
+black *.py wavenet/*.py
