@@ -6,29 +6,33 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-
 class Wavenet(nn.Module):
 
     def __init__(self, cfg):
         super().__init__()
 
+        self.input = CausalNoPresent1d(
+            cfg.n_audio_chans,
+            cfg.n_chans,
+            kernel_size=cfg.kernel_size)
+
         self.layers = []
         for i in range(cfg.n_layers):
-            block = ResBlock(cfg.n_channels, cfg.kernel_size, 2**i)
+            block = ResBlock(cfg.n_chans, cfg.kernel_size, 2**i)
             self.layers.append(block)
 
-        // FIXME check this should be same padding
         self.a1x1 = nn.Conv1d(
-            cfg.n_channels,
-            cfg.n_channels,
+            cfg.n_chans,
+            cfg.n_chans,
             kernel_size=1)
 
         self.b1x1 = nn.Conv1d(
-            cfg.n_channels,
-            cfg.n_channels,
+            cfg.n_chans,
+            cfg.n_chans,
             kernel_size=1)
 
     def forward(self, x):
+        x = F.relu(self.input(x))
         skips = []
         for l in self.layers:
             x = l(x)
@@ -42,37 +46,48 @@ class Wavenet(nn.Module):
 
 class ResBlock(nn.Module):
 
-    def __init__(self, n_channels, kernel_size, dilation):
+    def __init__(self, n_chans, kernel_size, dilation):
         super().__init__()
-        self.conv = nn.Causal1d(
-            n_channels * 2,
-            n_channels * 2,
+
+        self.conv = Causal1d(
+            n_chans,
+            n_chans * 2,
             kernel_size=kernel_size,
             dilation=dilation)
 
         self.end1x1 = nn.Conv1d(
-            n_channels,
-            n_channels,
+            n_chans,
+            n_chans,
             kernel_size=1)
 
     def forward(self, x):
-        return self.end1x1(F.glu(self.conv(x))) + x
+        residual = x
+        x = self.conv(x)
+        x = F.glu(x, dim=1)
+        x = self.end1x1(x) + residual
+        return x
 
 
 class Causal1d(nn.Conv1d):
 
-    def __init__(self, n_channels, kernel_size, dilation):
-        super().__init__(
-            n_channels,
-            n_channels,
-            kernel_size=kernel_size,
-            dilation=dilation)
+    def forward(self, x):
+        x = F.pad(x, (self.kernel_size[0] - 1, 0))
+        return super().forward(x)
+
+
+class CausalNoPresent1d(Causal1d):
 
     def forward(self, x):
-        super().forward(F.pad(x, (self.kernel_size - 1)))
+        x = F.pad(x, (1, -1))
+        return super().forward(x)
 
 
 class HParams:
-    n_channels = 256
+    n_audio_chans = 2
+    n_chans = 256
     n_layers = 10
-    kernel_size = 5
+    kernel_size = 2
+
+    def __init__(self, **kwargs):
+        for k,v in kwargs.items():
+            setattr(self, k, v)
