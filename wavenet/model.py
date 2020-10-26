@@ -6,39 +6,70 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from wavenet import utils
+
 
 class Wavenet(nn.Module):
+    """An implemetation of the original Wavenet paper.
+
+    Conditioning and context stacks are not implemented.
+    """
+
     def __init__(self, cfg):
         super().__init__()
+        self.cfg = cfg
 
-        self.input = CausalNoPresent1d(
+        # hide the present time step t in the input
+        # go from stereo straight to the network channel depth
+        self.input = CausalShifted1d(
             cfg.n_audio_chans,
             cfg.n_chans,
             kernel_size=cfg.kernel_size
         )
 
+        # residual blocks, as described in Figure 4
+        # a single context stack with 1, 2, 4... dilations
         self.layers = []
         for i in range(cfg.n_layers):
             block = ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
             self.layers.append(block)
 
+        # the final network in network dense layers
         self.a1x1 = nn.Conv1d(cfg.n_chans, cfg.n_chans, kernel_size=1)
-        self.b1x1 = nn.Conv1d(cfg.n_chans, cfg.n_chans, kernel_size=1)
+        self.b1x1 = nn.Conv1d(cfg.n_chans, cfg.n_logits(), kernel_size=1)
 
-    def forward(self, x):
-        x = F.relu(self.input(x))
-        skips = []
+    def forward(self, audio):
+        """Audio is trained on (N, C, W) batches.
+
+        There are C stereo input channels, W samples in each example. Logits
+        are produced in (N, K, C, W) form, where K is the number of classes
+        as determined by the audio bit depth.
+        """
+
+        N, C, W = audio.shape
+        x = F.relu(self.input(audio))
+        skips = 0
         for l in self.layers:
             x = l(x)
-            skips.append(x)
+            skips += x
 
-        x = F.relu(torch.stack(skips, 0).sum(0))
+        x = F.relu(x)
         x = F.relu(self.a1x1(x))
         x = self.b1x1(x)
-        return x
+        if C > 1:
+            # stereo
+            x = x.view(N, self.cfg.n_classes, C, W)
+
+        return x, F.cross_entropy(x, utils.to_class_idxs(audio, self.cfg))
 
 
 class ResBlock(nn.Module):
+    """ResBlock, as described in Figure 4 of the paper.
+
+    These blocks use linear gating units instead of tan gating, as
+    described in https://arxiv.org/pdf/1612.08083.pdf.
+    """
+
     def __init__(self, n_chans, kernel_size, dilation):
         super().__init__()
 
@@ -56,6 +87,11 @@ class ResBlock(nn.Module):
 
 
 class Causal1d(nn.Conv1d):
+    """Causal 1d convolution.
+
+    Left pads s.t. output timesteps depend only on past or present inputs.
+    """
+
     def forward(self, x):
         return super().forward(F.pad(x, self.lpad()))
 
@@ -63,13 +99,22 @@ class Causal1d(nn.Conv1d):
         return (self.kernel_size[0] - 1) * self.dilation[0], 0
 
 
-class CausalNoPresent1d(Causal1d):
+class CausalShifted1d(Causal1d):
+    """Shift input one to the right then do a Causal1d convolution.
+
+    Prepends 0 and removes the last element. This convolution can be used
+    as an initial layer in a causal stack in order to remove a dependency
+    on the current time step t, so we can model P(x_t|x_(t-1),x_(t-2)..., x_t0)
+    instead of accidentally modelling P(x_t|x_t, x_(t-1)..., x_t0).
+    """
+
     def forward(self, x):
         return super().forward(F.pad(x, (1, -1)))
 
 
 class HParams:
     n_audio_chans = 2
+    n_classes = 2**8
     n_chans = 256
     n_layers = 10
     kernel_size = 2
@@ -77,3 +122,6 @@ class HParams:
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def n_logits(self):
+        return self.n_classes * self.n_audio_chans

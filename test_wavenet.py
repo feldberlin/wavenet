@@ -1,13 +1,25 @@
-from wavenet import model
-
+import numpy as np
 import torch
+from torch.nn import functional as F
+
+from wavenet import model, train, utils
 
 
 def test_hparams():
     p = model.HParams()
     assert p.n_chans == 256
+    assert p.n_logits() == 512
 
 
-def test_wavenet():
+def test_wavenet_output_shape():
     m = model.Wavenet(model.HParams(n_channels=2))
-    m.forward(torch.randint(5, (1, 2, 4)).float())
+    x, loss = m.forward(torch.randint(5, (3, 2, 4)).float())
+    assert x.shape == (3, 256, 2, 4)
+
+
+def test_bimodally_distributed_stereo_at_t0_then_silence():
+    p, n_samples = model.HParams(), 128
+    X = utils.sample_bimodal_stereo_at_t0_then_silence(n_samples, p)
+    m = model.Wavenet(model.HParams(n_channels=2))
+    t = train.Trainer(m, X, None, train.HParams(max_epochs=1))
+    t.train()
