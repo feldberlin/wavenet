@@ -5,6 +5,11 @@ from torch.nn import functional as F
 
 def logits_to_audio(logits, cfg):
     "Convert logits to audio"
+    return from_class_idxs(logits_to_idxs(logits, cfg), cfg)
+
+
+def logits_to_idxs(logits, cfg):
+    "Convert logits to class indices"
     return torch.argmax(F.softmax(logits, dim=1), 1)
 
 
