@@ -23,7 +23,7 @@ def from_class_idxs(idxs, cfg):
     return (idxs - cfg.n_classes // 2 + 1).long()
 
 
-def sample_bimodal_stereo_at_t0_then_silence(n, cfg):
+def stereo_impulse_at_t0(n, m, cfg):
     "Left and right at t0 are both binomial, modes slightly apart."
     X = np.random.binomial(
         (cfg.n_classes, cfg.n_classes),
@@ -31,5 +31,5 @@ def sample_bimodal_stereo_at_t0_then_silence(n, cfg):
         (n, cfg.n_audio_chans)) - (cfg.n_classes / 2)
 
     X_batched = np.reshape(X, (n, cfg.n_audio_chans, 1))
-    X_batched = np.pad(X_batched, ((0, 0), (0, 0), (0, 3)))
+    X_batched = np.pad(X_batched, ((0, 0), (0, 0), (0, m - 1)))
     return torch.from_numpy(X_batched).float()

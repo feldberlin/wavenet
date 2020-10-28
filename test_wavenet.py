@@ -18,8 +18,8 @@ def test_wavenet_output_shape():
 
 
 def test_bimodally_distributed_stereo_at_t0_then_silence():
-    p, n_samples = model.HParams(), 128
-    X = utils.sample_bimodal_stereo_at_t0_then_silence(n_samples, p)
+    p, n_examples, n_samples = model.HParams(), 128, 4
+    X = utils.stereo_impulse_at_t0(n_examples, n_samples,  p)
     m = model.Wavenet(model.HParams(n_channels=2))
     t = train.Trainer(m, X, None, train.HParams(max_epochs=1))
     t.train()

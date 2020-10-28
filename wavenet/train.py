@@ -35,7 +35,11 @@ class Trainer:
     def train(self):
         model, config = self.model, self.config
         raw_model = model.module if hasattr(self.model, "module") else model
-        optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate, betas=config.betas)
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=config.learning_rate,
+            betas=config.betas
+        )
 
         def run_epoch(split):
             is_train = split == "train"
