@@ -3,6 +3,7 @@ Notebook tools
 """
 
 import matplotlib.pyplot as plt
+import celluloid
 from torch.nn import functional as F
 
 
@@ -17,8 +18,8 @@ def plot_stereo_sample_distributions(logits, n):
     fig, axs = plt.subplots(1, W, figsize=(W * 9, 8))
     for i, ax in enumerate(axs):
         ll, rr = channels(i)
-        ax.bar(list(range(len(ll))), ll)
-        ax.bar(list(range(len(rr))), rr)
+        ax.bar(list(range(len(ll))), ll, color="#00f")
+        ax.bar(list(range(len(rr))), rr, color="#0f0")
 
     plt.tight_layout()
 
@@ -33,23 +34,24 @@ def animate_stereo_sample_distributions(camera, axs, logits, n):
 
     for i, ax in enumerate(axs):
         ll, rr = channels(i)
-        ax.bar(list(range(len(ll))), ll)
-        ax.bar(list(range(len(rr))), rr)
-        camera.snap()
+        ax.bar(list(range(len(ll))), ll, color="#00f")
+        ax.bar(list(range(len(rr))), rr, color="#0f0")
 
     plt.tight_layout()
+    camera.snap()
 
 
 class LearningAnimation():
 
-    def __initialize__(self, W):
+    def __init__(self, W):
+        plt.ioff()
         fig, self.axs = plt.subplots(1, W, figsize=(W * 9, 8))
-        self.camera = Camera(fig)
+        self.camera = celluloid.Camera(fig)
 
-    def tick(self, X):
-        logits = X[:128]
+    def tick(self, model, trainset, testset):
+        logits, _ = model.forward(trainset[:128])
         animate_stereo_sample_distributions(self.camera, self.axs, logits, 0)
 
-    def render(self, fileaname):
+    def render(self, filename):
         animation = self.camera.animate()
-        animation.save(filename, writer = 'imagemagick')
+        animation.save(filename, writer='imagemagick')
