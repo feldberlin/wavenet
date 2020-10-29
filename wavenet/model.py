@@ -113,10 +113,20 @@ class CausalShifted1d(Causal1d):
 
 
 class HParams:
+
+    # stereo, mono
     n_audio_chans = 2
+
+    # sample bit depth
     n_classes = 2**8
+
+    # conv channels used throughout
     n_chans = 256
+
+    # layers in a single context stack
     n_layers = 10
+
+    # convolution kernel sixe
     kernel_size = 2
 
     def __init__(self, **kwargs):

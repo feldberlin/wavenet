@@ -16,6 +16,7 @@ def plot_stereo_sample_distributions(logits, n):
         return l, r
 
     fig, axs = plt.subplots(1, W, figsize=(W * 9, 8))
+    axs = [axs] if W == 1 else axs
     for i, ax in enumerate(axs):
         ll, rr = channels(i)
         ax.bar(list(range(len(ll))), ll, color="#00f")
@@ -47,6 +48,8 @@ class LearningAnimation():
         plt.ioff()
         fig, self.axs = plt.subplots(1, W, figsize=(W * 9, 8))
         self.camera = celluloid.Camera(fig)
+        if W == 1:
+            self.axs = [self.axs]
 
     def tick(self, model, trainset, testset):
         logits, _ = model.forward(trainset[:128])

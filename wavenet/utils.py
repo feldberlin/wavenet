@@ -23,11 +23,12 @@ def from_class_idxs(idxs, cfg):
     return (idxs - cfg.n_classes // 2 + 1).long()
 
 
-def stereo_impulse_at_t0(n, m, cfg):
+def stereo_impulse_at_t0(n, m, cfg, probs=None):
     "Left and right at t0 are both binomial, modes slightly apart."
+    probs = probs if probs else (0.45, 0.55)
     X = np.random.binomial(
         (cfg.n_classes, cfg.n_classes),
-        (0.45, 0.55),
+        probs,
         (n, cfg.n_audio_chans)) - (cfg.n_classes / 2)
 
     X_batched = np.reshape(X, (n, cfg.n_audio_chans, 1))

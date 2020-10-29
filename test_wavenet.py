@@ -1,6 +1,9 @@
 import numpy as np
 import torch
 from torch.nn import functional as F
+from torch.autograd.functional import jacobian
+
+import pytest
 
 from wavenet import model, train, utils
 
@@ -11,15 +14,61 @@ def test_hparams():
     assert p.n_logits() == 512
 
 
+def test_hparams_override():
+    p = model.HParams(n_chans=2)
+    assert p.n_chans == 2
+
+
 def test_wavenet_output_shape():
-    m = model.Wavenet(model.HParams(n_channels=2))
+    m = model.Wavenet(model.HParams(n_chans=2))
     x, loss = m.forward(torch.randint(5, (3, 2, 4)).float())
     assert x.shape == (3, 256, 2, 4)
 
 
-def test_bimodally_distributed_stereo_at_t0_then_silence():
-    p, n_examples, n_samples = model.HParams(), 128, 4
-    X = utils.stereo_impulse_at_t0(n_examples, n_samples,  p)
-    m = model.Wavenet(model.HParams(n_channels=2))
+def test_wavenet_jacobian_first_sample():
+    p = model.HParams()
+    X = utils.stereo_impulse_at_t0(1, 1,  p)
+    m = model.Wavenet(p)
+
+    def logits(X):
+        "we are only interested in the time dimensions W. keeping n for loss"
+        logits, loss = m.forward(X)
+        return logits.sum((1, 2)) # N, K, C, W -> N, W
+
+    # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
+    j = jacobian(logits, X)
+
+    # sum everything else to obtain WxW
+    j = j.sum((0, 2, 3))
+
+    # gradients must remain unaffected by the input
+    assert torch.unique(j) == torch.zeros(1)
+
+
+def test_wavenet_jacobian_many_samples():
+    p = model.HParams()
+    X = utils.stereo_impulse_at_t0(1, 8,  p) # 8 samples
+    m = model.Wavenet(p)
+
+    def logits(X):
+        "we are only interested in the time dimensions W. keeping n for loss"
+        logits, loss = m.forward(X)
+        return logits.sum((1, 2)) # N, K, C, W -> N, W
+
+    # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
+    j = jacobian(logits, X)
+
+    # sum everything else to obtain WxW
+    j = j.sum((0, 2, 3))
+
+    # jacobian must be lower triangular
+    assert torch.equal(torch.tril(j), j)
+
+
+@pytest.mark.integtest
+def integration_learn_bimodally_distributed_stereo_at_t0():
+    p = model.HParams(n_chans=2)
+    X = utils.stereo_impulse_at_t0(2**13, 1,  p)
+    m = model.Wavenet(p)
     t = train.Trainer(m, X, None, train.HParams(max_epochs=1), None)
     t.train()

@@ -1,4 +1,4 @@
 #!/bin/bash
 
 mypy *.py
-pytest "$@"
+pytest -m "not integtest" "$@"
