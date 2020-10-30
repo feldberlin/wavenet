@@ -25,7 +25,7 @@ def test_wavenet_output_shape():
     assert x.shape == (3, 256, 2, 4)
 
 
-def test_wavenet_jacobian_first_sample():
+def test_logit_jacobian_first_sample():
     p = model.HParams()
     X = utils.stereo_impulse_at_t0(1, 1,  p)
     m = model.Wavenet(p)
@@ -45,7 +45,7 @@ def test_wavenet_jacobian_first_sample():
     assert torch.unique(j) == torch.zeros(1)
 
 
-def test_wavenet_jacobian_many_samples():
+def test_logit_jacobian_many_samples():
     p = model.HParams()
     X = utils.stereo_impulse_at_t0(1, 8,  p) # 8 samples
     m = model.Wavenet(p)
@@ -57,6 +57,27 @@ def test_wavenet_jacobian_many_samples():
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
     j = jacobian(logits, X)
+
+    # sum everything else to obtain WxW
+    j = j.sum((0, 2, 3))
+
+    # jacobian must be lower triangular
+    assert torch.equal(torch.tril(j), j)
+
+
+def test_loss_jacobian_many_samples():
+    p = model.HParams()
+    X = utils.stereo_impulse_at_t0(1, 8,  p) # 8 samples
+    m = model.Wavenet(p)
+
+    def loss(audio):
+        logits, loss = m.forward(audio)
+        targets = utils.to_class_idxs(audio, p)
+        losses = F.cross_entropy(logits, targets, reduction='none')
+        return losses.sum(1) # N, C, W -> N, W
+
+    # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
+    j = jacobian(loss, X)
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))
