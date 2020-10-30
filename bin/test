@@ -1,4 +1,5 @@
 #!/bin/bash
 
+source .venv/bin/activate
 mypy *.py
-pytest -m "not integtest" "$@"
+python -m pytest -m "not integtest" "$@"

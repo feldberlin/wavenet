@@ -20,9 +20,15 @@ def test_hparams_override():
 
 
 def test_wavenet_output_shape():
-    m = model.Wavenet(model.HParams(n_chans=2))
+    m = model.Wavenet(model.HParams())
     x, loss = m.forward(torch.randint(5, (3, 2, 4)).float())
     assert x.shape == (3, 256, 2, 4)
+
+
+def test_wavenet_mono_output_shape():
+    m = model.Wavenet(model.HParams(n_audio_chans=1))
+    x, loss = m.forward(torch.randint(5, (3, 1, 4)).float())
+    assert x.shape == (3, 256, 1, 4)
 
 
 def test_logit_jacobian_first_sample():

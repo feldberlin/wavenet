@@ -77,10 +77,8 @@ class Trainer:
                     )
                     optimizer.step()
                     lr = cfg.learning_rate
-
-                    pbar.set_description(
-                        f"epoch {epoch+1} iter {it}: train loss {loss.item():.5f}. lr {lr:e}"
-                    )
+                    msg = f"{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
+                    pbar.set_description(msg)
 
                 if self.callback and it % self.cfg.callback_fq == 0:
                     self.callback.tick(self.model, self.trainset, self.testset)
@@ -106,13 +104,29 @@ class Trainer:
 
 
 class HParams:
+
+    # once over the whole dataset, how many times max
     max_epochs = 10
+
+    # number of examples in a single batch
     batch_size = 64
+
+    # the learning rate
     learning_rate = 3e-4
+
+    # adam betas
     betas = (0.9, 0.95)
+
+    # training loop clips gradients
     grad_norm_clip = 1.0
+
+    # checkpoint path
     ckpt_path = None
+
+    # how many steps before the callback is invoked
     callback_fq = 8
+
+    # how many gpus
     num_workers = 0
 
     def __init__(self, **kwargs):

@@ -56,9 +56,7 @@ class Wavenet(nn.Module):
         x = F.relu(x)
         x = F.relu(self.a1x1(x))
         x = self.b1x1(x)
-        if C > 1:
-            # stereo
-            x = x.view(N, self.cfg.n_classes, C, W)
+        x = x.view(N, self.cfg.n_classes, C, W)
 
         return x, F.cross_entropy(x, utils.to_class_idxs(audio, self.cfg))
 
