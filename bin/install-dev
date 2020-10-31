@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+# Run this once to install the dev environment.
+
+python -m venv .venv
+pip install -r requirements.txt
+pip install -r requirements.dev.txt
+python -m ipykernel install --user --name=.venv
