@@ -31,6 +31,25 @@ def test_wavenet_mono_output_shape():
     assert x.shape == (3, 256, 1, 4)
 
 
+def test_wavenet_modules_registered():
+    m = model.Wavenet(model.HParams(n_layers=1))
+    got = list(m.state_dict().keys())
+    want = [
+        'input.weight',
+        'input.bias',
+        'layers.0.conv.weight',
+        'layers.0.conv.bias',
+        'layers.0.end1x1.weight',
+        'layers.0.end1x1.bias',
+        'a1x1.weight',
+        'a1x1.bias',
+        'b1x1.weight',
+        'b1x1.bias'
+    ]
+
+    assert got == want
+
+
 def test_logit_jacobian_first_sample():
     p = model.HParams()
     X = utils.stereo_impulse_at_t0(1, 1,  p)
