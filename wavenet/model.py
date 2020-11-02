@@ -29,11 +29,10 @@ class Wavenet(nn.Module):
 
         # residual blocks, as described in Figure 4
         # a single context stack with 1, 2, 4... dilations
-        layers = []
-        for i in range(cfg.n_layers):
-            block = ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
-            layers.append(block)
-        self.layers = nn.ModuleList(layers)
+        self.layers = nn.ModuleList([
+            ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
+            for i in range(cfg.n_layers)
+        ])
 
         # the final network in network dense layers
         self.a1x1 = nn.Conv1d(cfg.n_chans, cfg.n_chans, kernel_size=1)
