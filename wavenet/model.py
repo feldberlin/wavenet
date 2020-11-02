@@ -10,7 +10,7 @@ from wavenet import utils
 
 
 class Wavenet(nn.Module):
-    """An implemetation of the original Wavenet paper.
+    """An implementation of the original Wavenet paper.
 
     Conditioning and context stacks are not implemented.
     """
@@ -53,7 +53,7 @@ class Wavenet(nn.Module):
             x = l(x)
             skips += x
 
-        x = F.relu(x)
+        x = F.relu(skips)
         x = F.relu(self.a1x1(x))
         x = self.b1x1(x)
         x = x.view(N, self.cfg.n_classes, C, W)
@@ -91,10 +91,9 @@ class Causal1d(nn.Conv1d):
     """
 
     def forward(self, x):
-        return super().forward(F.pad(x, self.lpad()))
-
-    def lpad(self):
-        return (self.kernel_size[0] - 1) * self.dilation[0], 0
+        k = self.kernel_size[0]
+        d = self.dilation[0]
+        return super().forward(F.pad(x, ((k - 1) * d, 0)))
 
 
 class CausalShifted1d(Causal1d):

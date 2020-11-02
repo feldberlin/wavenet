@@ -1,7 +1,6 @@
 # Wavenet
 
-A small wavenet implementation. Currently this imlementation supports only
-unconditioned models.
+A small unconditioned wavenet implementation.
 
 ## Installation
 
