@@ -91,9 +91,9 @@ class Causal1d(nn.Conv1d):
     """
 
     def forward(self, x):
-        k = self.kernel_size[0]
-        d = self.dilation[0]
-        return super().forward(F.pad(x, ((k - 1) * d, 0)))
+        kernel = self.kernel_size[0]
+        dilation = self.dilation[0]
+        return super().forward(F.pad(x, ((kernel - 1) * dilation, 0)))
 
 
 class CausalShifted1d(Causal1d):
