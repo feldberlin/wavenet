@@ -23,6 +23,16 @@ def from_class_idxs(idxs, cfg):
     return (idxs - (cfg.n_classes // 2 + 1)).long()
 
 
+def sample_from_logits(logits):
+    "Convert N, K, C, 1 logits into N, C, 1 samples"
+    N, K, C, W = logits.shape
+    assert W == 1
+    posterior = F.softmax(logits, dim=1)
+    posterior = posterior.squeeze(-1).permute(0, 2, 1)
+    d = torch.distributions.Categorical(posterior)
+    return d.sample().unsqueeze(-1)
+
+
 def stereo_impulse_at_t0(n, m, cfg, probs=None):
     "Left and right at t0 are both binomial, modes slightly apart."
     probs = probs if probs else (0.45, 0.55)
