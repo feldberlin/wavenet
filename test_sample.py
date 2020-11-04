@@ -58,3 +58,9 @@ def test_two_samples():
     m = model.Wavenet(model.HParams())
     track = sample.sample(m, 2)
     assert track.shape == (1, m.cfg.n_audio_chans, 2)
+
+
+def test_many_samples():
+    m = model.Wavenet(model.HParams())
+    track = sample.sample(m, 50)
+    assert track.shape == (1, m.cfg.n_audio_chans, 50)
