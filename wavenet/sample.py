@@ -73,11 +73,14 @@ class Memo(nn.Module):
         self.queue = deque([None] * depth)
 
     def forward(self, x):
+        assert x.shape[-1] == 1 # one timestep
+        return self.c.forward(self.pushpop(x))
+
+    def pushpop(self, x):
         self.queue.append(x)
         memo = self.queue.popleft()
         memo = torch.zeros_like(x) if memo is None else memo
-        x = torch.cat([memo, x], -1)
-        return self.c.forward(x)
+        return torch.cat([memo, x], -1)
 
 
 def to_conv1d(x: nn.Conv1d):
