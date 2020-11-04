@@ -26,6 +26,10 @@ def normalise(y, sr, p):
     return librosa.mu_compress(y)
 
 
+def mu_expand(x):
+    return librosa.mu_expand(x)
+
+
 class HParams:
 
     # resample input audio to this sampling rate

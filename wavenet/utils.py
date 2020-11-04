@@ -15,12 +15,12 @@ def logits_to_idxs(logits, cfg):
 
 def to_class_idxs(audio, cfg):
     "Convert unnormalised floating point audio data to class indices"
-    return audio.long() + (cfg.n_classes // 2) - 1
+    return audio.long() + (cfg.n_classes // 2) # -128 to 127 plus 256/2
 
 
 def from_class_idxs(idxs, cfg):
-    "Convert indives back to audio"
-    return (idxs - (cfg.n_classes // 2 + 1)).long()
+    "Convert indices back to audio"
+    return (idxs - (cfg.n_classes // 2)).long()
 
 
 def sample_from_logits(logits):

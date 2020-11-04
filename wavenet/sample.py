@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from wavenet import utils, model
+from wavenet import utils, model, audio
 
 
 def sample(m: model.Wavenet, n_samples: int, batch_size: int = 1):
