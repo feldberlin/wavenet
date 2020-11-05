@@ -26,7 +26,7 @@ def sample(m: model.Wavenet, n_samples: int, batch_size: int = 1):
         else:
             track = sample
 
-    return track
+    return track, audio.mu_expand(track.detach().numpy(), m.cfg)
 
 
 class Generator(model.Wavenet):

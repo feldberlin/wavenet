@@ -1,6 +1,7 @@
 # Wavenet
 
-A small unconditioned wavenet implementation.
+A small unconditioned wavenet implementation. Includes fast generation.
+
 
 ## Installation
 

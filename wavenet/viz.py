@@ -2,12 +2,29 @@
 Notebook tools
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
 import celluloid
+import torch
 from torch.nn import functional as F
+import IPython.display as ipd
 
 
-def plot_stereo_sample_distributions(logits, n):
+def plot_track(batch: torch.tensor, i: int = None, offset: int = 0, n_samples: int = 350):
+    N, C, W = batch.shape
+    i = i if i else np.random.randint(N)
+
+    plt.figure(figsize=(15, 7))
+    for channel in range(C):
+        data = batch[i, channel, i:i+n_samples]
+        plt.title(f'track {i}, offset {offset}, n_samples {n_samples}')
+        plt.plot(data)
+
+    plt.tight_layout()
+    return i
+
+
+def plot_stereo_sample_distributions(logits: torch.tensor, n: int):
     N, K, C, W = logits.shape
 
     def channels(pos):

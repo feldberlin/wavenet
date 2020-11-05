@@ -1,5 +1,7 @@
 __pycache__/
-.venv
-.ipynb_checkpoints
+.venv/
+.ipynb_checkpoints/
+
+checkpoints
 todo.md
 training.gif

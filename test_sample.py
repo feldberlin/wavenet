@@ -36,19 +36,19 @@ def test_input_units_generator_vs_wavenet():
 
 def test_one_sample():
     m = model.Wavenet(model.HParams())
-    track = sample.sample(m, 1)
+    track, _ = sample.sample(m, 1)
     assert track.shape == (1, m.cfg.n_audio_chans, 1)
 
 
 def test_two_samples():
     m = model.Wavenet(model.HParams())
-    track = sample.sample(m, 2)
+    track, _ = sample.sample(m, 2)
     assert track.shape == (1, m.cfg.n_audio_chans, 2)
 
 
 def test_many_samples():
     m = model.Wavenet(model.HParams())
-    track = sample.sample(m, 50)
+    track, _ = sample.sample(m, 50)
     assert track.shape == (1, m.cfg.n_audio_chans, 50)
 
 

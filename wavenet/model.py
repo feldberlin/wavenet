@@ -32,6 +32,7 @@ class Wavenet(nn.Module):
         self.layers = nn.ModuleList([
             ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
             for i in range(cfg.n_layers)
+            for _ in range(cfg.dilation_stacks)
         ])
 
         # the final network in network dense layers
@@ -114,17 +115,24 @@ class HParams:
     # stereo, mono
     n_audio_chans = 2
 
+    # audio sampling rate
+    sampling_rate = 22050
+
     # sample bit depth
     n_classes = 2**8
 
     # conv channels used throughout
     n_chans = 256
 
-    # layers in a single context stack
+    # layers per dilation stack in a single context stack
     n_layers = 10
 
     # convolution kernel sixe
     kernel_size = 2
+
+    # number of repeated dilation patterns in a single context stack,
+    # e.g. 1, 2, 4...128, 1, 2, 4...128 is 2 dilation stacks.
+    dilation_stacks = 1
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

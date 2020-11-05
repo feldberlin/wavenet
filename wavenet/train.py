@@ -23,19 +23,19 @@ class Trainer:
         self.testset = testset
         self.cfg = cfg
         self.callback = callback
-        self.device = "cpu"
+        self.device = 'cpu'
         if torch.cuda.is_available():
             self.device = torch.cuda.current_device()
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def checkpoint(self):
-        raw = self.model.module if hasattr(self.model, "module") else self.model
-        logger.info("saving %s", self.cfg.ckpt_path)
+        raw = self.model.module if hasattr(self.model, 'module') else self.model
+        logger.info('saving %s', self.cfg.ckpt_path)
         torch.save(raw.state_dict(), self.cfg.ckpt_path)
 
     def train(self):
         model, cfg = self.model, self.cfg
-        raw_model = model.module if hasattr(self.model, "module") else model
+        raw_model = model.module if hasattr(self.model, 'module') else model
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=cfg.learning_rate,
@@ -43,7 +43,7 @@ class Trainer:
         )
 
         def run_epoch(split):
-            is_train = split == "train"
+            is_train = split == 'train'
             model.train(is_train)
             data = self.trainset if is_train else self.testset
             loader = DataLoader(
@@ -77,7 +77,7 @@ class Trainer:
                     )
                     optimizer.step()
                     lr = cfg.learning_rate
-                    msg = f"{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
+                    msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
                     pbar.set_description(msg)
 
                 if self.callback and it % self.cfg.callback_fq == 0:
@@ -86,20 +86,19 @@ class Trainer:
             if not is_train:
 
                 test_loss = float(np.mean(losses))
-                logger.info("test loss: %f", test_loss)
+                logger.info('test loss: %f', test_loss)
                 return test_loss
 
-        best_loss = float("inf")
+        best_loss = float('inf')
         for epoch in range(cfg.max_epochs):
 
-            run_epoch("train")
+            run_epoch('train')
             if self.testset is not None:
-                test_loss = run_epoch("test")
+                test_loss = run_epoch('test')
 
             # early stopping, or just save always if no test set is provided
             good_model = self.testset is None or test_loss < best_loss
             if self.cfg.ckpt_path is not None and good_model:
-                best_loss = test_loss
                 self.checkpoint()
 
 
