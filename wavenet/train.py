@@ -90,6 +90,7 @@ class Trainer:
                 return test_loss
 
         best_loss = float('inf')
+        test_loss = float('inf')
         for epoch in range(cfg.max_epochs):
 
             run_epoch('train')
@@ -99,6 +100,7 @@ class Trainer:
             # early stopping, or just save always if no test set is provided
             good_model = self.testset is None or test_loss < best_loss
             if self.cfg.ckpt_path is not None and good_model:
+                best_loss = test_loss
                 self.checkpoint()
 
 
