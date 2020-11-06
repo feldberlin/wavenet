@@ -112,6 +112,15 @@ class CausalShifted1d(Causal1d):
 
 class HParams:
 
+    # retain stereo in the input dataset. otherwise squashes to mono
+    stereo = True
+
+    # resample input dataset to sampling_rate before mu law compansion
+    resample = True
+
+    # length of a single track in samples
+    sample_length = 22050
+
     # stereo, mono
     n_audio_chans = 2
 
