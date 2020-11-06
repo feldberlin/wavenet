@@ -2,8 +2,9 @@
 Training loop
 """
 
-import math
 import logging
+import math
+import os
 
 from tqdm import tqdm
 import numpy as np
