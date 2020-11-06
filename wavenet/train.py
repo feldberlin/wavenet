@@ -32,7 +32,7 @@ class Trainer:
     def checkpoint(self):
         raw = self.model.module if hasattr(self.model, 'module') else self.model
         logger.info('saving %s', self.cfg.ckpt_path)
-        torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.cfg.ckpt_path))
+        torch.save(raw.state_dict(), os.path.join(wandb.run.dir, self.cfg.ckpt_path))
 
     def train(self):
         model, cfg = self.model, self.cfg
@@ -45,7 +45,7 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        wandb.watch(model)
+        wandb.watch(model, log='all')
 
         def run_epoch(split):
             is_train = split == 'train'
