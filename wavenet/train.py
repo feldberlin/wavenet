@@ -7,6 +7,7 @@ import logging
 
 from tqdm import tqdm
 import numpy as np
+import wandb
 
 import torch
 import torch.optim as optim
@@ -27,11 +28,13 @@ class Trainer:
         if torch.cuda.is_available():
             self.device = torch.cuda.current_device()
             self.model = torch.nn.DataParallel(self.model).to(self.device)
+            wandb.init(project=cfg.project_name)
+            wandb.watch(self.model)
 
     def checkpoint(self):
         raw = self.model.module if hasattr(self.model, 'module') else self.model
         logger.info('saving %s', self.cfg.ckpt_path)
-        torch.save(raw.state_dict(), self.cfg.ckpt_path)
+        torch.save(model.state_dict(), os.path.join(wandb.run.dir, self.cfg.ckpt_path))
 
     def train(self):
         model, cfg = self.model, self.cfg
@@ -78,6 +81,7 @@ class Trainer:
                     optimizer.step()
                     lr = cfg.learning_rate
                     msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
+                    wandb.log({'train loss': loss})
                     pbar.set_description(msg)
 
                 if self.callback and it % self.cfg.callback_fq == 0:
@@ -86,7 +90,7 @@ class Trainer:
             if not is_train:
 
                 test_loss = float(np.mean(losses))
-                logger.info('test loss: %f', test_loss)
+                wandb.log({'test loss': test_loss})
                 return test_loss
 
         best_loss = float('inf')
@@ -105,6 +109,9 @@ class Trainer:
 
 
 class HParams:
+
+    # wandb project
+    project_name = 'feldberlin-wavenet'
 
     # once over the whole dataset, how many times max
     max_epochs = 10
