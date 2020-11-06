@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .ipynb_checkpoints/
+wandb/
 
 checkpoints
 todo.md

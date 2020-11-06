@@ -28,8 +28,6 @@ class Trainer:
         if torch.cuda.is_available():
             self.device = torch.cuda.current_device()
             self.model = torch.nn.DataParallel(self.model).to(self.device)
-            wandb.init(project=cfg.project_name)
-            wandb.watch(self.model)
 
     def checkpoint(self):
         raw = self.model.module if hasattr(self.model, 'module') else self.model
@@ -44,6 +42,10 @@ class Trainer:
             lr=cfg.learning_rate,
             betas=cfg.betas
         )
+
+        # telemetry
+        wandb.init(project=cfg.project_name)
+        wandb.watch(model)
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -134,7 +136,7 @@ class HParams:
     # how many steps before the callback is invoked
     callback_fq = 8
 
-    # how many gpus
+    # how many data loader threads to use
     num_workers = 0
 
     def __init__(self, **kwargs):
