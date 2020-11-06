@@ -2,6 +2,8 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
+from wavenet import model, audio as waudio
+
 
 def logits_to_audio(logits, cfg):
     "Convert logits to audio"
@@ -14,13 +16,15 @@ def logits_to_idxs(logits, cfg):
 
 
 def to_class_idxs(audio, cfg):
-    "Convert unnormalised floating point audio data to class indices"
-    return audio.long() + (cfg.n_classes // 2) # -128 to 127 plus 256/2
+    "Convert audio [-1., 1.] to class indices [0, n]."
+    assert audio.min() >= -1., audio.min()
+    assert audio.max() <= 1., audio.max()
+    return (((audio + 1) / 2.) * (cfg.n_classes - 1)).long()
 
 
 def from_class_idxs(idxs, cfg):
-    "Convert indices back to audio"
-    return (idxs - (cfg.n_classes // 2)).long()
+    "Convert class indices [0, n] to audio [-1., 1.]"
+    return 2. * idxs / (cfg.n_classes - 1) - 1.
 
 
 def sample_from_logits(logits):
@@ -39,8 +43,29 @@ def stereo_impulse_at_t0(n, m, cfg, probs=None):
     X = np.random.binomial(
         (cfg.n_classes, cfg.n_classes),
         probs,
-        (n, cfg.n_audio_chans)) - (cfg.n_classes / 2)
+        (n, cfg.n_audio_chans))
 
+    X = from_class_idxs(X, cfg)
     X_batched = np.reshape(X, (n, cfg.n_audio_chans, 1))
     X_batched = np.pad(X_batched, ((0, 0), (0, 0), (0, m - 1)))
     return torch.from_numpy(X_batched).float()
+
+
+def preprocess(X, p, ratio: float = 0.8, znorm=False):
+    "Return X, X_test, mean, variance with znormed features and mu law"
+
+    # split the data
+    split = int(X.shape[0] * ratio)
+    X, X_test = X[:split], X[split:]
+
+    # mu compress
+    X = waudio.mu_compress_batch(X, p)
+    X_test = waudio.mu_compress_batch(X_test, p)
+
+    # scale features
+    if znorm:
+        X, mean, variance = waudio.znorm(X) # calculate on trainset only
+        X_test, _, _ = waudio.znorm(mean, variance) # apply to testset, too
+        return X, X_test, mean, variance
+
+    return X, X_test

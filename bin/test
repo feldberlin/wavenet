@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# try bin/test --pdb
+# try bin/test test_wavenet.py -x
 
 export WANDB_MODE=dryrun
 source .venv/bin/activate

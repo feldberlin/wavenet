@@ -16,7 +16,7 @@ def test_generator_init():
 def test_generator_forward():
     m = model.Wavenet(model.HParams())
     g = sample.Generator(m)
-    x, loss = g.forward(torch.randint(5, (2, 2, 1)).float())
+    x, loss = g.forward((torch.rand(2, 2, 1) * 2 - 1).float())
     assert x.shape == (2, m.cfg.n_classes, m.cfg.n_audio_chans, 1)
 
 

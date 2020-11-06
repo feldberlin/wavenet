@@ -59,7 +59,8 @@ class Wavenet(nn.Module):
         x = self.b1x1(x)
         x = x.view(N, self.cfg.n_classes, C, W)
 
-        return x, F.cross_entropy(x, utils.to_class_idxs(audio, self.cfg))
+        y = utils.to_class_idxs(audio, self.cfg)
+        return x, F.cross_entropy(x, y)
 
 
 class ResBlock(nn.Module):
