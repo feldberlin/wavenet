@@ -59,8 +59,7 @@ class Wavenet(nn.Module):
         x = self.b1x1(x)
         x = x.view(N, self.cfg.n_classes, C, W)
 
-        y = utils.to_class_idxs(audio, self.cfg)
-        return x, F.cross_entropy(x, y)
+        return x, F.cross_entropy(x, utils.to_class_idxs(audio, self.cfg))
 
 
 class ResBlock(nn.Module):
@@ -120,13 +119,13 @@ class HParams:
     resample = True
 
     # length of a single track in samples
-    sample_length = 22050
+    sample_length = 16000
 
     # stereo, mono
     n_audio_chans = 2
 
     # audio sampling rate
-    sampling_rate = 22050
+    sampling_rate = 16000
 
     # sample bit depth
     n_classes = 2**8
@@ -137,12 +136,12 @@ class HParams:
     # layers per dilation stack in a single context stack
     n_layers = 10
 
-    # convolution kernel sixe
+    # convolution kernel size
     kernel_size = 2
 
     # number of repeated dilation patterns in a single context stack,
     # e.g. 1, 2, 4...128, 1, 2, 4...128 is 2 dilation stacks.
-    dilation_stacks = 1
+    dilation_stacks = 3
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

@@ -32,7 +32,7 @@ def test_wavenet_mono_output_shape():
 
 
 def test_wavenet_modules_registered():
-    m = model.Wavenet(model.HParams(n_layers=1))
+    m = model.Wavenet(model.HParams(n_layers=1, dilation_stacks=1))
     got = list(m.state_dict().keys())
     want = [
         'input.weight',

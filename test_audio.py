@@ -6,8 +6,8 @@ from wavenet import model, audio
 
 def test_load():
     y, sr = audio.load_raw('data/steinway.wav')
-    assert sr == 22050
-    assert len(y) == 302400
+    assert sr == 44100
+    assert len(y) == 604800
 
 
 def test_load_normalised():

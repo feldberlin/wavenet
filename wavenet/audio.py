@@ -5,7 +5,7 @@ import numpy as np
 
 def load_raw(filename: str):
     "Load a track off disk into C, W in [-1., 1.]"
-    y, sr = librosa.load(filename)
+    y, sr = librosa.load(filename, sr=None)
     return y, sr
 
 
@@ -26,7 +26,7 @@ def load_dataset_from_track(filename: str, p):
 def resample(y: np.array, input_sr: int, p):
     "Resample from and to C, W in [-1., 1.]"
     if p.resample and input_sr != p.sampling_rate:
-        return librosa.resample(y, sr=p.sampling_rate, mono=not p.stereo)
+        return librosa.resample(y, input_sr, p.sampling_rate)
     return y
 
 
