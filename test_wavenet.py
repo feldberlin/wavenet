@@ -5,7 +5,7 @@ from torch.autograd.functional import jacobian
 
 import pytest
 
-from wavenet import model, train, utils
+from wavenet import model, train, utils, datasets
 
 
 def test_hparams():
@@ -52,7 +52,7 @@ def test_wavenet_modules_registered():
 
 def test_logit_jacobian_first_sample():
     p = model.HParams()
-    X = utils.stereo_impulse_at_t0(1, 1,  p)
+    X = datasets.stereo_impulse_at_t0(1, 1,  p)
     m = model.Wavenet(p)
 
     def logits(X):
@@ -72,7 +72,7 @@ def test_logit_jacobian_first_sample():
 
 def test_logit_jacobian_many_samples():
     p = model.HParams()
-    X = utils.stereo_impulse_at_t0(1, 8,  p) # 8 samples
+    X = datasets.stereo_impulse_at_t0(1, 8,  p) # 8 samples
     m = model.Wavenet(p)
 
     def logits(X):
@@ -92,7 +92,7 @@ def test_logit_jacobian_many_samples():
 
 def test_loss_jacobian_many_samples():
     p = model.HParams()
-    X = utils.stereo_impulse_at_t0(1, 8,  p) # 8 samples
+    X = datasets.stereo_impulse_at_t0(1, 8,  p) # 8 samples
     m = model.Wavenet(p)
 
     def loss(audio):
@@ -114,7 +114,7 @@ def test_loss_jacobian_many_samples():
 @pytest.mark.integtest
 def integration_learn_bimodally_distributed_stereo_at_t0():
     p = model.HParams(n_chans=2)
-    X = utils.stereo_impulse_at_t0(2**13, 1,  p)
+    X = datasets.stereo_impulse_at_t0(2**13, 1,  p)
     m = model.Wavenet(p)
     t = train.Trainer(m, X, None, train.HParams(max_epochs=1), None)
     t.train()

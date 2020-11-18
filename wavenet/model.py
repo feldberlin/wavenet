@@ -116,7 +116,7 @@ class CausalShifted1d(Causal1d):
         return super().forward(F.pad(x, (1, -1)))
 
 
-class HParams:
+class HParams(utils.HParams):
 
     # retain stereo in the input dataset. otherwise squashes to mono
     stereo = True

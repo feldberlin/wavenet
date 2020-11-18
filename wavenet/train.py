@@ -15,6 +15,8 @@ import torch
 import torch.optim as optim
 from torch.utils.data.dataloader import DataLoader
 
+from wavenet import utils
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +49,7 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
+        wandb.config.update({ **dict(self.model.cfg), 'train': dict(self.cfg) })
         wandb.watch(model, log='all')
 
         def run_epoch(split):
@@ -110,7 +113,7 @@ class Trainer:
                     self.checkpoint('best.test')
 
 
-class HParams:
+class HParams(utils.HParams):
 
     # wandb project
     project_name = 'feldberlin-wavenet'
