@@ -4,8 +4,6 @@ import numpy as np
 import torch
 from torch.nn import functional as F
 
-from wavenet import model, audio as waudio
-
 
 def logits_to_class_idxs(logits, cfg):
     "Convert logits to class indices via softmax argmax"
@@ -61,4 +59,4 @@ class HParams():
                      if not k.startswith('__')
                      and not inspect.isfunction(v) }
 
-        return iter({ **f(self), **f(self.__class__) }.items())
+        return iter({ **f(self.__class__), **f(self) }.items())

@@ -16,6 +16,5 @@ def test_hparams_dict():
             for k, v in kwargs.items():
                 setattr(self, k, v)
 
-    p = TestHParams(baz='qux')
-    assert dict(p) == { 'foo': 'bar', 'baz': 'qux' }
-
+    p = TestHParams(foo='DELETED', baz='qux')
+    assert dict(p) == { 'foo': 'DELETED', 'baz': 'qux' }
