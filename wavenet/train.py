@@ -2,6 +2,7 @@
 Training loop
 """
 
+from collections import defaultdict
 import logging
 import math
 import os
@@ -30,10 +31,10 @@ class Trainer:
             self.device = torch.cuda.current_device()
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
-    def checkpoint(self):
+    def checkpoint(self, name):
         raw = self.model.module if hasattr(self.model, 'module') else self.model
-        logger.info('saving %s', self.cfg.ckpt_path)
-        torch.save(raw.state_dict(), os.path.join(wandb.run.dir, self.cfg.ckpt_path))
+        filename = os.path.join(wandb.run.dir, self.cfg.ckpt_path(name))
+        torch.save(raw.state_dict(), filename)
 
     def train(self):
         model, cfg = self.model, self.cfg
@@ -78,9 +79,10 @@ class Trainer:
                 if is_train:
                     model.zero_grad()
                     loss.backward()
-                    torch.nn.utils.clip_grad_norm_(
-                        model.parameters(), cfg.grad_norm_clip
-                    )
+                    if cfg.grad_norm_clip:
+                        torch.nn.utils.clip_grad_norm_(
+                            model.parameters(), cfg.grad_norm_clip
+                        )
                     optimizer.step()
                     lr = cfg.learning_rate
                     msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
@@ -90,25 +92,22 @@ class Trainer:
                 if self.callback and it % self.cfg.callback_fq == 0:
                     self.callback.tick(self.model, self.trainset, self.testset)
 
-            if not is_train:
+            return float(np.mean(losses))
 
-                test_loss = float(np.mean(losses))
-                wandb.log({'test loss': test_loss})
-                return test_loss
-
-        best_loss = float('inf')
-        test_loss = float('inf')
+        best = defaultdict(lambda: float('inf'))
         for epoch in range(cfg.max_epochs):
 
-            run_epoch('train')
+            train_loss = run_epoch('train')
+            if train_loss < best['train']:
+                best['train'] = train_loss
+                self.checkpoint('best.train')
+
             if self.testset is not None:
                 test_loss = run_epoch('test')
-
-            # early stopping, or just save always if no test set is provided
-            good_model = self.testset is None or test_loss < best_loss
-            if self.cfg.ckpt_path is not None and good_model:
-                best_loss = test_loss
-                self.checkpoint()
+                wandb.log({'test loss': test_loss})
+                if test_loss < best['test']:
+                    best['test'] = test_loss
+                    self.checkpoint('best.test')
 
 
 class HParams:
@@ -129,10 +128,7 @@ class HParams:
     betas = (0.9, 0.95)
 
     # training loop clips gradients
-    grad_norm_clip = 1.0
-
-    # checkpoint path
-    ckpt_path = None
+    grad_norm_clip = None
 
     # how many steps before the callback is invoked
     callback_fq = 8
@@ -143,3 +139,6 @@ class HParams:
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+    def ckpt_path(self, name):
+        return f'checkpoints.{name}'

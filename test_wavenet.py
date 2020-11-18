@@ -97,7 +97,7 @@ def test_loss_jacobian_many_samples():
 
     def loss(audio):
         logits, loss = m.forward(audio)
-        targets = utils.to_class_idxs(audio, p)
+        targets = utils.quantized_audio_to_class_idxs(audio, p)
         losses = F.cross_entropy(logits, targets, reduction='none')
         return losses.sum(1) # N, C, W -> N, W
 

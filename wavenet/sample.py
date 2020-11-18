@@ -20,7 +20,7 @@ def sample(m: model.Wavenet, n_samples: int, batch_size: int = 1):
     for i in range(n_samples):
         logits, _ = g.forward(sample.float())
         idxs = utils.sample_from_logits(logits)
-        sample = utils.from_class_idxs(idxs, m.cfg)
+        sample = utils.quantized_audio_from_class_idxs(idxs, m.cfg)
         if track is not None:
             track = torch.cat([track, sample], -1)
         else:

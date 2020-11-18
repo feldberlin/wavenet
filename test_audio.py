@@ -4,21 +4,27 @@ import torch
 from wavenet import model, audio
 
 
-def test_load():
+def test_load_mono():
+    y, sr = audio.load_raw('data/steinway.wav', mono=True)
+    assert sr == 44100
+    assert y.shape == (1, 604800)
+
+
+def test_load_stereo():
     y, sr = audio.load_raw('data/steinway.wav')
     assert sr == 44100
-    assert len(y) == 604800
+    assert y.shape == (2, 604800)
 
 
 def test_load_normalised():
     p = model.HParams()
-    y = audio.load_resampled('data/steinway.wav', p)
+    y = audio.load_resampled('data/aria.wav', p)
     assert np.min(y) >= -1.0
     assert np.max(y) <= 1.0
 
 
 def test_compansion_round_trip():
-    p = model.HParams(resample=False)
+    p = model.HParams()
 
     # include one lossy pass
     t1 = np.random.rand(2, 4) * 2 - 1
@@ -32,8 +38,7 @@ def test_compansion_round_trip():
     assert np.allclose(t1, t2)
 
 
-def test_znorm():
-    X = np.random.rand(10, 2, 4) * 2 - 1
-    X, _, _  = audio.znorm(X)
-    assert np.allclose(X.mean(0), 0.)
-    assert np.allclose(X.var(0), 1.)
+def test_load_dataset_from_track():
+    p = model.HParams()
+    x = audio.load_dataset_from_track('data/steinway.wav', p)
+    assert x.shape == (24, 2, 16000) # N, C, W

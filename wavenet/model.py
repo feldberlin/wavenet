@@ -10,9 +10,13 @@ from wavenet import utils
 
 
 class Wavenet(nn.Module):
-    """An implementation of the original Wavenet paper.
+    """An implementation of the original Wavenet paper, but no conditioning.
 
-    Conditioning and context stacks are not implemented.
+    Cross entropy requires ground truth as 8 bit mu law companded quantized
+    audio in e.g. [-128, 127], but shifted e.g. to [0, 255]. This net is
+    using a categorical loss, and logits will be argmaxed to obtain
+    predictions. Network input is 8 bit mu law companded quantized audio
+    in [-128, 127].
     """
 
     def __init__(self, cfg):
@@ -48,7 +52,8 @@ class Wavenet(nn.Module):
         """
 
         N, C, W = audio.shape
-        x = F.relu(self.input(audio))
+        x = utils.quantized_audio_to_unit_loudness(audio, self.cfg)
+        x = F.relu(self.input(x))
         skips = 0
         for l in self.layers:
             x = l(x)
@@ -58,8 +63,9 @@ class Wavenet(nn.Module):
         x = F.relu(self.a1x1(x))
         x = self.b1x1(x)
         x = x.view(N, self.cfg.n_classes, C, W)
+        y = utils.quantized_audio_to_class_idxs(audio, self.cfg)
 
-        return x, F.cross_entropy(x, utils.to_class_idxs(audio, self.cfg))
+        return x, F.cross_entropy(x, y)
 
 
 class ResBlock(nn.Module):
@@ -149,3 +155,9 @@ class HParams:
 
     def n_logits(self):
         return self.n_classes * self.n_audio_chans
+
+    def receptive_field_size(self):
+        return self.dilation_stacks * 2**self.n_layers
+
+    def receptive_field_size_ms(self):
+        return 1000 * self.receptive_field_size() / self.sampling_rate
