@@ -34,13 +34,15 @@ class Trainer:
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def checkpoint(self, name):
-        raw = self.model.module if hasattr(self.model, 'module') else self.model
         filename = os.path.join(wandb.run.dir, self.cfg.ckpt_path(name))
-        torch.save(raw.state_dict(), filename)
+        torch.save(self._model().state_dict(), filename)
+
+    def _model(self):
+        "Unwrapped model, not data parallel"
+        return self.model.module if hasattr(self.model, 'module') else self.model
 
     def train(self):
         model, cfg = self.model, self.cfg
-        raw_model = model.module if hasattr(self.model, 'module') else model
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=cfg.learning_rate,
@@ -49,7 +51,7 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        wandb.config.update({ **dict(self.model.cfg), 'train': dict(self.cfg) })
+        wandb.config.update({ **dict(self._model().cfg), 'train': dict(self.cfg) })
         wandb.watch(model, log='all')
 
         def run_epoch(split):
