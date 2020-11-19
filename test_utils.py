@@ -26,7 +26,8 @@ def test_hparams_dict():
 def test_lrfinder():
     m = model.Wavenet(model.HParams())
     optimizer = torch.optim.SGD(m.parameters(), lr=1e-8)
-    schedule = utils.lrfinder(optimizer, 9, train.HParams(batch_size=1, max_epochs=1))
+    p = train.HParams(batch_size=1, max_epochs=1)
+    schedule = utils.lrfinder(optimizer, 9, p)
     assert np.isclose(schedule.gamma, 10.)
 
 

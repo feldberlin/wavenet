@@ -67,7 +67,7 @@ def onecycle(optimizer, n_examples, cfg):
 # config
 
 def wandbcfg(model_cfg, train_cfg):
-    return { **dict(model_cfg), 'train': dict(train_cfg) }
+    return {**dict(model_cfg), 'train': dict(train_cfg)}
 
 
 class HParams():

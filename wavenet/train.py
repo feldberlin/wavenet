@@ -11,7 +11,6 @@ import numpy as np
 import wandb
 
 import torch
-import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data.dataloader import DataLoader
 
 from wavenet import utils
@@ -57,7 +56,7 @@ class Trainer:
         schedule = utils.onecycle(optimizer, len(self.trainset), self.cfg)
         if finder:
             schedule = utils.lrfinder(optimizer, len(self.trainset), self.cfg)
-            wandb.config.update({ 'dataset': 'lrfinder' })
+            wandb.config.update({'dataset': 'lrfinder'})
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -118,7 +117,7 @@ class Trainer:
 
             if self.testset is not None:
                 test_loss = run_epoch('test')
-                wandb.log({ 'test loss': test_loss })
+                wandb.log({'test loss': test_loss})
                 if test_loss < best['test']:
                     best['test'] = test_loss
                     self.checkpoint('best.test')
