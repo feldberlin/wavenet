@@ -2,9 +2,7 @@ import torch
 from torch.nn import functional as F
 from torch.autograd.functional import jacobian
 
-import pytest
-
-from wavenet import model, train, utils, datasets
+from wavenet import model, utils, datasets
 
 
 def test_hparams():
@@ -108,12 +106,3 @@ def test_loss_jacobian_many_samples():
 
     # jacobian must be lower triangular
     assert torch.equal(torch.tril(j), j)
-
-
-@pytest.mark.integtest
-def integration_learn_bimodally_distributed_stereo_at_t0():
-    p = model.HParams(n_chans=2)
-    X = datasets.stereo_impulse_at_t0(2**13, 1,  p)
-    m = model.Wavenet(p)
-    t = train.Trainer(m, X, None, train.HParams(max_epochs=1), None)
-    t.train()

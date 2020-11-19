@@ -1,3 +1,4 @@
 #!/bin/bash
 
-pytest -m "integtest" "$@"
+export WANDB_MODE=dryrun
+python -m pytest -m "integration" "$@"

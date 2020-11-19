@@ -11,6 +11,7 @@ import numpy as np
 import wandb
 
 import torch
+import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data.dataloader import DataLoader
 
 from wavenet import utils
@@ -39,7 +40,7 @@ class Trainer:
         is_data_paralell = hasattr(self.model, 'module')
         return self.model.module if is_data_paralell else self.model
 
-    def train(self):
+    def train(self, finder=False):
         model, cfg = self.model, self.cfg
         optimizer = torch.optim.AdamW(
             model.parameters(),
@@ -49,9 +50,14 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        cfgdict = {**dict(self._model().cfg), 'train': dict(self.cfg)}
-        wandb.config.update(cfgdict)
+        wandb.config.update(utils.wandbcfg(self._model().cfg, self.cfg))
         wandb.watch(model, log='all')
+
+        # lr schedule
+        schedule = utils.onecycle(optimizer, len(self.trainset), self.cfg)
+        if finder:
+            schedule = utils.lrfinder(optimizer, len(self.trainset), self.cfg)
+            wandb.config.update({ 'dataset': 'lrfinder' })
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -88,10 +94,14 @@ class Trainer:
                             model.parameters(), cfg.grad_norm_clip
                         )
                     optimizer.step()
-                    lr = cfg.learning_rate
+                    schedule.step()
+
+                    # logging
+                    lr = schedule.get_last_lr()[0]
                     msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
-                    wandb.log({'train loss': loss})
                     pbar.set_description(msg)
+                    wandb.log({'learning rate': lr})
+                    wandb.log({'train loss': loss})
 
                 if self.callback and it % self.cfg.callback_fq == 0:
                     self.callback.tick(self.model, self.trainset, self.testset)
@@ -108,7 +118,7 @@ class Trainer:
 
             if self.testset is not None:
                 test_loss = run_epoch('test')
-                wandb.log({'test loss': test_loss})
+                wandb.log({ 'test loss': test_loss })
                 if test_loss < best['test']:
                     best['test'] = test_loss
                     self.checkpoint('best.test')

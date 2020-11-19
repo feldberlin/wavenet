@@ -6,4 +6,4 @@
 export WANDB_MODE=dryrun
 source .venv/bin/activate
 mypy *.py
-python -m pytest -m "not integtest" "$@"
+python -m pytest -m "not integration" "$@"
