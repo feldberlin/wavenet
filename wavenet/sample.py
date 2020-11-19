@@ -6,7 +6,6 @@ from collections import deque
 
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 
 from wavenet import utils, model, audio
 
@@ -52,7 +51,7 @@ class Generator(model.Wavenet):
         super().__init__(m.cfg)
         self.cfg = m.cfg
         self.input = Memo(to_conv1d(m.input), m.cfg.kernel_size - 1)
-        self.layers = nn.ModuleList([ResBlock(l) for l in m.layers])
+        self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)
         self.b1x1 = to_conv1d(m.b1x1)
 
@@ -73,7 +72,7 @@ class Memo(nn.Module):
         self.queue = deque([None] * depth)
 
     def forward(self, x):
-        assert x.shape[-1] == 1 # one timestep
+        assert x.shape[-1] == 1  # one timestep
         return self.c.forward(self.pushpop(x))
 
     def pushpop(self, x):

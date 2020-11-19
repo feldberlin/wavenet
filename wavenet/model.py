@@ -2,7 +2,6 @@
 Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
-import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
@@ -55,8 +54,8 @@ class Wavenet(nn.Module):
         x = utils.quantized_audio_to_unit_loudness(audio, self.cfg)
         x = F.relu(self.input(x))
         skips = 0
-        for l in self.layers:
-            x = l(x)
+        for block in self.layers:
+            x = block(x)
             skips += x
 
         x = F.relu(skips)

@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 
 from wavenet import model, audio
 
@@ -41,4 +40,4 @@ def test_compansion_round_trip():
 def test_load_dataset_from_track():
     p = model.HParams()
     x = audio.load_dataset_from_track('data/steinway.wav', p)
-    assert x.shape == (24, 2, 16000) # N, C, W
+    assert x.shape == (24, 2, 16000)  # N, C, W

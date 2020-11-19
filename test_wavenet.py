@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.autograd.functional import jacobian
@@ -58,7 +57,7 @@ def test_logit_jacobian_first_sample():
     def logits(X):
         "we are only interested in the time dimensions W. keeping n for loss"
         logits, loss = m.forward(X)
-        return logits.sum((1, 2)) # N, K, C, W -> N, W
+        return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
     j = jacobian(logits, X)
@@ -72,13 +71,13 @@ def test_logit_jacobian_first_sample():
 
 def test_logit_jacobian_many_samples():
     p = model.HParams()
-    X = datasets.stereo_impulse_at_t0(1, 8,  p) # 8 samples
+    X = datasets.stereo_impulse_at_t0(1, 8,  p)  # 8 samples
     m = model.Wavenet(p)
 
     def logits(X):
         "we are only interested in the time dimensions W. keeping n for loss"
         logits, loss = m.forward(X)
-        return logits.sum((1, 2)) # N, K, C, W -> N, W
+        return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
     j = jacobian(logits, X)
@@ -92,14 +91,14 @@ def test_logit_jacobian_many_samples():
 
 def test_loss_jacobian_many_samples():
     p = model.HParams()
-    X = datasets.stereo_impulse_at_t0(1, 8,  p) # 8 samples
+    X = datasets.stereo_impulse_at_t0(1, 8,  p)  # 8 samples
     m = model.Wavenet(p)
 
     def loss(audio):
         logits, loss = m.forward(audio)
         targets = utils.quantized_audio_to_class_idxs(audio, p)
         losses = F.cross_entropy(logits, targets, reduction='none')
-        return losses.sum(1) # N, C, W -> N, W
+        return losses.sum(1)  # N, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
     j = jacobian(loss, X)

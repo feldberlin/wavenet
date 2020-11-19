@@ -6,7 +6,8 @@ import numpy as np
 def load_raw(filename: str, mono: bool = False):
     "Load a track off disk into C, W in [-1., 1.]"
     y, sr = librosa.load(filename, sr=None, mono=mono)
-    if y.ndim == 1: y = np.expand_dims(y, axis=0)
+    if y.ndim == 1:
+        y = np.expand_dims(y, axis=0)
     return y, sr
 
 
@@ -39,7 +40,7 @@ def load_dataset_from_track(filename: str, p):
     ys = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2**13)
     ys = np.moveaxis(ys, -1, 0)
     ys = torch.tensor(ys, dtype=torch.float32)
-    return ys[1:, :, :] # remove hoplength leading silence
+    return ys[1:, :, :]  # remove hoplength leading silence
 
 
 def mu_compress_batch(x: np.array, p):

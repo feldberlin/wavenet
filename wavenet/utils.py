@@ -1,6 +1,5 @@
 import inspect
 
-import numpy as np
 import torch
 from torch.nn import functional as F
 
@@ -12,7 +11,8 @@ def logits_to_class_idxs(logits, cfg):
 
 def logits_to_audio(logits, cfg):
     "Convert logits to audio"
-    return quantized_audio_from_class_idxs(logits_to_class_idxs(logits, cfg), cfg)
+    idxs = logits_to_class_idxs(logits, cfg)
+    return quantized_audio_from_class_idxs(idxs, cfg)
 
 
 def quantized_audio_to_class_idxs(audio, cfg):
@@ -47,16 +47,16 @@ def sample_from_logits(logits):
 
 
 def load(model, name, p):
-    return model.load_state_dict(torch.load(path))
+    return model.load_state_dict(torch.load(p.chkpt_path(name)))
 
 
 class HParams():
     "Make HParams iterable so we can call dict on it"
     def __iter__(self):
         def f(obj):
-            return { k:v for k, v
-                     in vars(obj).items()
-                     if not k.startswith('__')
-                     and not inspect.isfunction(v) }
+            return {k: v for k, v
+                    in vars(obj).items()
+                    if not k.startswith('__')
+                    and not inspect.isfunction(v)}
 
-        return iter({ **f(self.__class__), **f(self) }.items())
+        return iter({**f(self.__class__), **f(self)}.items())

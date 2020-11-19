@@ -4,7 +4,6 @@ Training loop
 
 from collections import defaultdict
 import logging
-import math
 import os
 
 from tqdm import tqdm
@@ -12,7 +11,6 @@ import numpy as np
 import wandb
 
 import torch
-import torch.optim as optim
 from torch.utils.data.dataloader import DataLoader
 
 from wavenet import utils
@@ -38,8 +36,8 @@ class Trainer:
         torch.save(self._model().state_dict(), filename)
 
     def _model(self):
-        "Unwrapped model, not data parallel"
-        return self.model.module if hasattr(self.model, 'module') else self.model
+        is_data_paralell = hasattr(self.model, 'module')
+        return self.model.module if is_data_paralell else self.model
 
     def train(self):
         model, cfg = self.model, self.cfg
@@ -51,7 +49,8 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        wandb.config.update({ **dict(self._model().cfg), 'train': dict(self.cfg) })
+        cfgdict = {**dict(self._model().cfg), 'train': dict(self.cfg)}
+        wandb.config.update(cfgdict)
         wandb.watch(model, log='all')
 
         def run_epoch(split):
