@@ -1,3 +1,5 @@
+![Build](https://github.com/feldberlin/wavenet/workflows/CI/badge.svg)
+
 # Wavenet
 
 A small unconditioned wavenet implementation. Includes fast generation.
