@@ -3,7 +3,6 @@ Training loop
 """
 
 from collections import defaultdict
-import logging
 import os
 
 from tqdm import tqdm
@@ -14,8 +13,6 @@ import torch
 from torch.utils.data.dataloader import DataLoader
 
 from wavenet import utils
-
-logger = logging.getLogger(__name__)
 
 
 class Trainer:
@@ -32,7 +29,8 @@ class Trainer:
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def checkpoint(self, name):
-        filename = os.path.join(wandb.run.dir, self.cfg.ckpt_path(name))
+        base = wandb.run.dir if wandb.run.dir != '/' else '.'
+        filename = os.path.join(base, self.cfg.ckpt_path(name))
         torch.save(self._model().state_dict(), filename)
 
     def _model(self):
@@ -49,9 +47,14 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        cfgdict = {**dict(self._model().cfg), 'train': dict(self.cfg)}
-        wandb.config.update(cfgdict)
+        wandb.config.update(utils.wandbcfg(self._model().cfg, self.cfg))
         wandb.watch(model, log='all')
+
+        # lr schedule
+        schedule = utils.onecycle(optimizer, len(self.trainset), self.cfg)
+        if self.cfg.finder:
+            schedule = utils.lrfinder(optimizer, len(self.trainset), self.cfg)
+            wandb.config.update({'dataset': 'lrfinder'})
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -88,10 +91,14 @@ class Trainer:
                             model.parameters(), cfg.grad_norm_clip
                         )
                     optimizer.step()
-                    lr = cfg.learning_rate
+                    schedule.step()
+
+                    # logging
+                    lr = schedule.get_last_lr()[0]
                     msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
-                    wandb.log({'train loss': loss})
                     pbar.set_description(msg)
+                    wandb.log({'learning rate': lr})
+                    wandb.log({'train loss': loss})
 
                 if self.callback and it % self.cfg.callback_fq == 0:
                     self.callback.tick(self.model, self.trainset, self.testset)
@@ -139,6 +146,9 @@ class HParams(utils.HParams):
 
     # how many data loader threads to use
     num_workers = 0
+
+    # is this a learning rate finder run
+    finder = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

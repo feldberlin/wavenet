@@ -1,8 +1,12 @@
 import inspect
+import math
 
 import torch
 from torch.nn import functional as F
+from torch.optim import lr_scheduler
 
+
+# logits and normalisation
 
 def logits_to_class_idxs(logits, cfg):
     "Convert logits to class indices via softmax argmax"
@@ -46,8 +50,25 @@ def sample_from_logits(logits):
     return d.sample().unsqueeze(-1)
 
 
-def load(model, name, p):
-    return model.load_state_dict(torch.load(p.chkpt_path(name)))
+# schedules
+
+def lrfinder(optimizer, n_examples, cfg):
+    n_steps = math.ceil(n_examples * cfg.max_epochs / cfg.batch_size)
+    start_lr, final_lr = 1e-8, 10.
+    gamma = (final_lr / start_lr) ** (1/n_steps)
+    return lr_scheduler.ExponentialLR(optimizer, gamma)
+
+
+def onecycle(optimizer, n_examples, cfg):
+    lr = cfg.learning_rate
+    n_steps = math.ceil(n_examples * cfg.max_epochs / cfg.batch_size)
+    return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=n_steps)
+
+
+# config
+
+def wandbcfg(model_cfg, train_cfg):
+    return {**dict(model_cfg), 'train': dict(train_cfg)}
 
 
 class HParams():
@@ -60,3 +81,9 @@ class HParams():
                     and not inspect.isfunction(v)}
 
         return iter({**f(self.__class__), **f(self)}.items())
+
+
+# lifecycle
+
+def load(model, name, p):
+    return model.load_state_dict(torch.load(p.chkpt_path(name)))

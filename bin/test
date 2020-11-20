@@ -3,7 +3,7 @@
 # try bin/test --pdb
 # try bin/test test_wavenet.py -x
 
-export WANDB_MODE=dryrun
+export WANDB_MODE=disabled
 source .venv/bin/activate
 mypy *.py
-python -m pytest -m "not integtest" "$@"
+python -m pytest -m "not integration" "$@"

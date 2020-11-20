@@ -39,3 +39,4 @@ jobs:
     - name: Test with pytest
       run: |
         bin/test
+        bin/integration-test

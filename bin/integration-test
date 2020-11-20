@@ -1,3 +1,4 @@
 #!/bin/bash
 
-pytest -m "integtest" "$@"
+export WANDB_MODE=disabled
+python -m pytest -m "integration" "$@"
