@@ -3,7 +3,6 @@ Training loop
 """
 
 from collections import defaultdict
-import logging
 import os
 
 from tqdm import tqdm
@@ -14,8 +13,6 @@ import torch
 from torch.utils.data.dataloader import DataLoader
 
 from wavenet import utils
-
-logger = logging.getLogger(__name__)
 
 
 class Trainer:
@@ -32,14 +29,15 @@ class Trainer:
             self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def checkpoint(self, name):
-        filename = os.path.join(wandb.run.dir, self.cfg.ckpt_path(name))
+        base = wandb.run.dir if wandb.run.dir != '/' else '.'
+        filename = os.path.join(base, self.cfg.ckpt_path(name))
         torch.save(self._model().state_dict(), filename)
 
     def _model(self):
         is_data_paralell = hasattr(self.model, 'module')
         return self.model.module if is_data_paralell else self.model
 
-    def train(self, finder=False):
+    def train(self):
         model, cfg = self.model, self.cfg
         optimizer = torch.optim.AdamW(
             model.parameters(),
@@ -54,7 +52,7 @@ class Trainer:
 
         # lr schedule
         schedule = utils.onecycle(optimizer, len(self.trainset), self.cfg)
-        if finder:
+        if self.cfg.finder:
             schedule = utils.lrfinder(optimizer, len(self.trainset), self.cfg)
             wandb.config.update({'dataset': 'lrfinder'})
 
@@ -148,6 +146,9 @@ class HParams(utils.HParams):
 
     # how many data loader threads to use
     num_workers = 0
+
+    # is this a learning rate finder run
+    finder = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
