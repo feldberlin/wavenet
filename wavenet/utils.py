@@ -77,13 +77,15 @@ def decode_nucleus(core_mass: float = 0.9):
 
 def lrfinder(optimizer, n_examples, cfg):
     start_lr, final_lr = 1e-8, 10.
-    gamma = (final_lr / start_lr) ** (1/cfg.n_steps())
+    n_steps = cfg.n_steps(n_examples)
+    gamma = (final_lr / start_lr) ** (1/n_steps)
     return lr_scheduler.ExponentialLR(optimizer, gamma)
 
 
 def onecycle(optimizer, n_examples, cfg):
     lr = cfg.learning_rate
-    return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=cfg.n_steps())
+    n_steps = cfg.n_steps(n_examples)
+    return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=n_steps)
 
 
 # config

@@ -3,23 +3,32 @@ import numpy as np
 from wavenet import model, audio
 
 
-def test_load_mono():
+def test_load_raw_mono():
     y, sr = audio.load_raw('data/steinway.wav', mono=True)
     assert sr == 44100
     assert y.shape == (1, 604800)
 
 
-def test_load_stereo():
-    y, sr = audio.load_raw('data/steinway.wav')
+def test_load_raw_stereo():
+    y, sr = audio.load_raw('data/steinway.wav', mono=False)
     assert sr == 44100
     assert y.shape == (2, 604800)
 
 
-def test_load_normalised():
-    p = model.HParams()
-    y = audio.load_resampled('data/aria.wav', p)
+def test_load_resampled_mono():
+    p = model.HParams(stereo=False)
+    y = audio.load_resampled('data/steinway.wav', p)
+    assert y.shape == (1, 219429)
     assert np.min(y) >= -1.0
     assert np.max(y) <= 1.0
+
+
+def test_load_resampled_stereo():
+    p = model.HParams(stereo=True)
+    y = audio.load_resampled('data/steinway.wav', p)
+    assert y.shape == (2, 219429)
+    assert np.min(y) >= -1.0
+    assert np.max(y) <= 1.004  # wtf?
 
 
 def test_compansion_round_trip():

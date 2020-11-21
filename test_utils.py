@@ -4,9 +4,9 @@ import numpy as np
 from wavenet import utils, model, train
 
 
-def test_sample_from_logits():
+def test_decode_random():
     logits = torch.ones(1, 4, 2, 1) / 4
-    sample = utils.sample_from_logits(logits)
+    sample = utils.decode_random(logits)
     assert sample.shape == (1, 2, 1)
 
 

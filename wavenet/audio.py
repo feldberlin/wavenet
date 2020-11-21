@@ -20,9 +20,8 @@ def load_resampled(filename: str, p):
 def resample(y: np.array, input_sr: int, p):
     "Resample from and to C, W in [-1., 1.]"
     if p.resample and input_sr != p.sampling_rate:
-        y = to_librosa_mono(y)
-        y = librosa.resample(y, input_sr, p.sampling_rate)
-        return from_librosa_mono(y)
+        y = librosa.resample(to_librosa(y), input_sr, p.sampling_rate)
+        return from_librosa(y)
     return y
 
 
@@ -38,8 +37,9 @@ def mu_expand(x: np.array, p):
 
 def load_dataset_from_track(filename: str, p):
     "Load many slices from a single track into N, C, W in [-1., 1.]"
-    y = load_resampled(filename, p)
+    y = to_librosa(load_resampled(filename, p))
     ys = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2**13)
+    ys = np.expand_dims(ys, axis=0) if ys.ndim == 2 else ys  # mono case
     ys = np.moveaxis(ys, -1, 0)
     ys = torch.tensor(ys, dtype=torch.float32)
     return ys[1:, :, :]  # remove hoplength leading silence
@@ -51,11 +51,11 @@ def mu_compress_batch(x: np.array, p):
     return np.apply_along_axis(fn, 0, x)
 
 
-def to_librosa_mono(y):
-    "Librosa expects (W,), but we use (1, W) for consistency"
+def to_librosa(y):
+    "Librosa wants (W,) mono but we want (1, W) for consistency"
     return y.squeeze(0) if y.shape[0] == 1 else y
 
 
-def from_librosa_mono(y):
-    "Librosa expects (W,), but we use (1, W) for consistency"
-    return y.expand_dims(0)
+def from_librosa(y):
+    "Librosa wants (W,) mono but we want (1, W) for consistency"
+    return np.expand_dims(y, axis=0) if y.ndim == 1 else y
