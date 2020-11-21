@@ -1,7 +1,7 @@
 import torch
 from torch.nn import functional as F
 
-from wavenet import model, sample
+from wavenet import model, sample, utils
 
 
 def test_generator_init():
@@ -44,7 +44,7 @@ def test_two_samples():
 
 def test_many_samples():
     m = model.Wavenet(model.HParams())
-    track, _ = sample.sample(m, 50)
+    track, _ = sample.sample(m, utils.decode_random, n_samples=50)
     assert track.shape == (1, m.cfg.n_audio_chans, 50)
 
 

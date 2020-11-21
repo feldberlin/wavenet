@@ -3,6 +3,7 @@ Training loop
 """
 
 from collections import defaultdict
+import math
 import os
 
 from tqdm import tqdm
@@ -47,7 +48,7 @@ class Trainer:
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        wandb.config.update(utils.wandbcfg(self._model().cfg, self.cfg))
+        wandb.config.update(utils.cfgdict(self._model().cfg, self.cfg))
         wandb.watch(model, log='all')
 
         # lr schedule
@@ -156,3 +157,6 @@ class HParams(utils.HParams):
 
     def ckpt_path(self, name):
         return f'checkpoints.{name}'
+
+    def n_steps(self, n_examples):
+        return math.ceil(n_examples * self.max_epochs / self.batch_size)

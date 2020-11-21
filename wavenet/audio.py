@@ -13,14 +13,16 @@ def load_raw(filename: str, mono: bool = False):
 
 def load_resampled(filename: str, p):
     "Load a resampled track off disk into C, W in [-1., 1.]"
-    y, sr = load_raw(filename)
+    y, sr = load_raw(filename, mono=not p.stereo)
     return resample(y, sr, p)
 
 
 def resample(y: np.array, input_sr: int, p):
     "Resample from and to C, W in [-1., 1.]"
     if p.resample and input_sr != p.sampling_rate:
-        return librosa.resample(y, input_sr, p.sampling_rate)
+        y = to_librosa_mono(y)
+        y = librosa.resample(y, input_sr, p.sampling_rate)
+        return from_librosa_mono(y)
     return y
 
 
@@ -47,3 +49,13 @@ def mu_compress_batch(x: np.array, p):
     "Mu compress from and to N, C, W in [-1., 1.]"
     def fn(x): return mu_compress(x, p)
     return np.apply_along_axis(fn, 0, x)
+
+
+def to_librosa_mono(y):
+    "Librosa expects (W,), but we use (1, W) for consistency"
+    return y.squeeze(0) if y.shape[0] == 1 else y
+
+
+def from_librosa_mono(y):
+    "Librosa expects (W,), but we use (1, W) for consistency"
+    return y.expand_dims(0)

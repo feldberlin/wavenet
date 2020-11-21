@@ -10,7 +10,8 @@ import torch.nn as nn
 from wavenet import utils, model, audio
 
 
-def sample(m: model.Wavenet, n_samples: int, batch_size: int = 1):
+def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
+    "Sample with the given utils.decode_* decoder function."
     g = Generator(m)
     sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1))
 
@@ -18,8 +19,7 @@ def sample(m: model.Wavenet, n_samples: int, batch_size: int = 1):
     track = None
     for i in range(n_samples):
         logits, _ = g.forward(sample.float())
-        idxs = utils.sample_from_logits(logits)
-        sample = utils.quantized_audio_from_class_idxs(idxs, m.cfg)
+        sample = utils.quantized_audio_from_class_idxs(decoder(logits), m.cfg)
         if track is not None:
             track = torch.cat([track, sample], -1)
         else:

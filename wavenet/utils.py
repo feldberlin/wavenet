@@ -1,5 +1,4 @@
 import inspect
-import math
 
 import torch
 from torch.nn import functional as F
@@ -40,8 +39,10 @@ def quantized_audio_to_unit_loudness(audio, cfg):
     return (audio / (cfg.n_classes / 2.0))
 
 
-def sample_from_logits(logits):
-    "Convert N, K, C, 1 logits into N, C, 1 samples"
+# generator decoders
+
+def decode_random(logits):
+    "Convert N, K, C, 1 logits into N, C, 1 samples by random sampling"
     N, K, C, W = logits.shape
     assert W == 1
     posterior = F.softmax(logits, dim=1)
@@ -50,24 +51,44 @@ def sample_from_logits(logits):
     return d.sample().unsqueeze(-1)
 
 
+def decode_argmax(logits):
+    "Convert N, K, C, 1 logits into N, C, 1 samples by argmax"
+    N, K, C, W = logits.shape
+    assert W == 1
+    return torch.argmax(F.softmax(logits, dim=1), dim=1)
+
+
+def decode_nucleus(core_mass: float = 0.9):
+    """Convert N, K, C, 1 logits into N, C, 1 samples by nucleus sampling"
+    as proposed in https://arxiv.org/pdf/1904.09751.pdf
+    """
+    def fn(logits):
+        N, K, C, W = logits.shape
+        assert W == 1
+        sorted, idxs = torch.sort(logits, descending=True)
+        csum = torch.cumsum(F.softmax(sorted, dim=-1), dim=-1)
+        logits[idxs[csum > core_mass]] = -float('Inf')
+        d = torch.distributions.Categorical(F.softmax(logits, dim=-1))
+        return d.sample().unsqueeze(-1)
+    return fn
+
+
 # schedules
 
 def lrfinder(optimizer, n_examples, cfg):
-    n_steps = math.ceil(n_examples * cfg.max_epochs / cfg.batch_size)
     start_lr, final_lr = 1e-8, 10.
-    gamma = (final_lr / start_lr) ** (1/n_steps)
+    gamma = (final_lr / start_lr) ** (1/cfg.n_steps())
     return lr_scheduler.ExponentialLR(optimizer, gamma)
 
 
 def onecycle(optimizer, n_examples, cfg):
     lr = cfg.learning_rate
-    n_steps = math.ceil(n_examples * cfg.max_epochs / cfg.batch_size)
-    return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=n_steps)
+    return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=cfg.n_steps())
 
 
 # config
 
-def wandbcfg(model_cfg, train_cfg):
+def cfgdict(model_cfg, train_cfg):
     return {**dict(model_cfg), 'train': dict(train_cfg)}
 
 
