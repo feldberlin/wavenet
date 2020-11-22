@@ -26,6 +26,7 @@ class Trainer:
         self.trainset = trainset
         self.testset = testset
         self.cfg = cfg
+        self.model_cfg = model.cfg
         self.callback = callback
         self.device = 'cpu'
         if torch.cuda.is_available():
@@ -42,7 +43,7 @@ class Trainer:
         return self.model.module if is_data_paralell else self.model
 
     def train(self):
-        model, cfg = self.model, self.cfg
+        model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=cfg.learning_rate,
@@ -50,17 +51,17 @@ class Trainer:
         )
 
         # half precision gradient scaler
-        scaler = amp.GradScaler(enabled=self.model.cfg.mixed_precision)
+        scaler = amp.GradScaler(enabled=model_cfg.mixed_precision)
 
         # telemetry
         wandb.init(project=cfg.project_name)
-        wandb.config.update(utils.cfgdict(self._model().cfg, self.cfg))
+        wandb.config.update(utils.cfgdict(model_cfg, cfg))
         wandb.watch(model, log='all')
 
         # lr schedule
-        schedule = utils.onecycle(optimizer, len(self.trainset), self.cfg)
-        if self.cfg.finder:
-            schedule = utils.lrfinder(optimizer, len(self.trainset), self.cfg)
+        schedule = utils.onecycle(optimizer, len(self.trainset), cfg)
+        if cfg.finder:
+            schedule = utils.lrfinder(optimizer, len(self.trainset), cfg)
             wandb.config.update({'dataset': 'lrfinder'})
 
         def run_epoch(split):
@@ -86,7 +87,7 @@ class Trainer:
 
                 x = x.to(self.device)
                 with torch.set_grad_enabled(is_train):
-                    with amp.autocast(enabled=self.model.cfg.mixed_precision):
+                    with amp.autocast(enabled=model_cfg.mixed_precision):
                         logits, loss = model(x)
 
                     loss = loss.mean()  # collect gpus
@@ -110,7 +111,7 @@ class Trainer:
                     wandb.log({'learning rate': lr})
                     wandb.log({'train loss': loss})
 
-                if self.callback and it % self.cfg.callback_fq == 0:
+                if self.callback and it % cfg.callback_fq == 0:
                     self.callback.tick(self.model, self.trainset, self.testset)
 
             return float(np.mean(losses))
