@@ -1,4 +1,5 @@
 import inspect
+import math
 
 import torch
 from torch.nn import functional as F
@@ -58,17 +59,19 @@ def decode_argmax(logits):
     return torch.argmax(F.softmax(logits, dim=1), dim=1)
 
 
-def decode_nucleus(core_mass: float = 0.9):
+def decode_nucleus(core_mass: float = 0.95):
     """Convert N, K, C, 1 logits into N, C, 1 samples by nucleus sampling"
     as proposed in https://arxiv.org/pdf/1904.09751.pdf
     """
     def fn(logits):
         N, K, C, W = logits.shape
         assert W == 1
-        sorted, idxs = torch.sort(logits, descending=True)
-        csum = torch.cumsum(F.softmax(sorted, dim=-1), dim=-1)
-        logits[idxs[csum > core_mass]] = -float('Inf')
-        d = torch.distributions.Categorical(F.softmax(logits, dim=-1))
+        sorted, idxs = torch.sort(logits, dim=1)
+        csum = torch.cumsum(F.softmax(sorted, dim=1), dim=1)
+        logits[:, idxs[csum > core_mass]] = -float('Inf')
+        posterior = F.softmax(logits, dim=1)
+        posterior = posterior.squeeze(-1).permute(0, 2, 1)
+        d = torch.distributions.Categorical(posterior)
         return d.sample().unsqueeze(-1)
     return fn
 
