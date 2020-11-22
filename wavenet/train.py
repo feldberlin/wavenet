@@ -50,7 +50,7 @@ class Trainer:
         )
 
         # half precision gradient scaler
-        scaler = amp.GradScaler(enabled=self.cfg.mixed_precision)
+        scaler = amp.GradScaler(enabled=self.model.cfg.mixed_precision)
 
         # telemetry
         wandb.init(project=cfg.project_name)
@@ -86,17 +86,16 @@ class Trainer:
 
                 x = x.to(self.device)
                 with torch.set_grad_enabled(is_train):
-                    with amp.autocast(enabled=self.cfg.mixed_precision):
+                    with amp.autocast(enabled=self.model.cfg.mixed_precision):
                         logits, loss = model(x)
-                        loss = loss.mean()  # collect gpus
 
+                    loss = loss.mean()  # collect gpus
                     losses.append(loss.item())
 
                 if is_train:
                     model.zero_grad()
                     scaler.scale(loss).backward()
-                    if cfg.grad_norm_clip:
-                        scaler.unscale_(optimizer)
+                    if cfg.grad_norm_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
                             model.parameters(), cfg.grad_norm_clip
                         )
@@ -136,9 +135,6 @@ class HParams(utils.HParams):
 
     # wandb project
     project_name = 'feldberlin-wavenet'
-
-    # use mixed precision training
-    mixed_precision = True
 
     # once over the whole dataset, how many times max
     max_epochs = 10

@@ -4,6 +4,7 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 
 import torch.nn as nn
 from torch.nn import functional as F
+import torch.cuda.amp as amp
 
 from wavenet import utils
 
@@ -50,21 +51,22 @@ class Wavenet(nn.Module):
         as determined by the audio bit depth.
         """
 
-        N, C, W = audio.shape
-        x = utils.quantized_audio_to_unit_loudness(audio, self.cfg)
-        x = F.relu(self.input(x))
-        skips = 0
-        for block in self.layers:
-            x = block(x)
-            skips += x
+        with amp.autocast(enabled=self.cfg.mixed_precision):
+            N, C, W = audio.shape
+            x = utils.quantized_audio_to_unit_loudness(audio, self.cfg)
+            x = F.relu(self.input(x))
+            skips = 0
+            for block in self.layers:
+                x = block(x)
+                skips += x
 
-        x = F.relu(skips)
-        x = F.relu(self.a1x1(x))
-        x = self.b1x1(x)
-        x = x.view(N, self.cfg.n_classes, C, W)
-        y = utils.quantized_audio_to_class_idxs(audio, self.cfg)
+            x = F.relu(skips)
+            x = F.relu(self.a1x1(x))
+            x = self.b1x1(x)
+            x = x.view(N, self.cfg.n_classes, C, W)
+            y = utils.quantized_audio_to_class_idxs(audio, self.cfg)
 
-        return x, F.cross_entropy(x, y)
+            return x, F.cross_entropy(x, y)
 
 
 class ResBlock(nn.Module):
@@ -116,6 +118,9 @@ class CausalShifted1d(Causal1d):
 
 
 class HParams(utils.HParams):
+
+    # use mixed precision
+    mixed_precision = True
 
     # retain stereo in the input dataset. otherwise squashes to mono
     stereo = True
