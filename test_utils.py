@@ -67,7 +67,4 @@ def test_decode_nucleus():
         [[3.], [3.]]
     ]])
 
-    got = utils.decode_nucleus()(logits)
-    print(got)
-    assert got.shape == (1, 2, 1)
-    assert False
+    assert utils.decode_nucleus()(logits).shape == (1, 2, 1)

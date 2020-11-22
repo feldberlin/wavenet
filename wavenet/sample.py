@@ -12,13 +12,18 @@ from wavenet import utils, model, audio
 
 def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
     "Sample with the given utils.decode_* decoder function."
-    g = Generator(m)
-    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1))
+
+    # gpu thx
+    g, device = Generator(m), 'cpu'
+    if torch.cuda.is_available():
+        device = torch.cuda.current_device()
+        g = torch.nn.DataParallel(g).to(device)
 
     # one sample at a time from and into the memoised network
     track = None
+    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1))
     for i in range(n_samples):
-        logits, _ = g.forward(sample.float())
+        logits, _ = g.forward(sample.float().to(device))
         sample = utils.quantized_audio_from_class_idxs(decoder(logits), m.cfg)
         if track is not None:
             track = torch.cat([track, sample], -1)
