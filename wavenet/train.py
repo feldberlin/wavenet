@@ -11,12 +11,15 @@ import numpy as np
 import wandb
 
 import torch
+import torch.cuda.amp as amp
 from torch.utils.data.dataloader import DataLoader
 
 from wavenet import utils
 
 
 class Trainer:
+    """Train wavenet with mixed precision on a one cycle schedule.
+    """
 
     def __init__(self, model, trainset, testset, cfg, callback):
         self.model = model
@@ -45,6 +48,9 @@ class Trainer:
             lr=cfg.learning_rate,
             betas=cfg.betas
         )
+
+        # half precision gradient scaler
+        scaler = amp.GradScaler(enabled=self.cfg.mixed_precision)
 
         # telemetry
         wandb.init(project=cfg.project_name)
@@ -80,19 +86,23 @@ class Trainer:
 
                 x = x.to(self.device)
                 with torch.set_grad_enabled(is_train):
-                    logits, loss = model(x)
-                    loss = loss.mean()  # collect gpus
+                    with amp.autocast(enabled=self.cfg.mixed_precision):
+                        logits, loss = model(x)
+                        loss = loss.mean()  # collect gpus
+
                     losses.append(loss.item())
 
                 if is_train:
                     model.zero_grad()
-                    loss.backward()
+                    scaler.scale(loss).backward()
                     if cfg.grad_norm_clip:
+                        scaler.unscale_(optimizer)
                         torch.nn.utils.clip_grad_norm_(
                             model.parameters(), cfg.grad_norm_clip
                         )
-                    optimizer.step()
+                    scaler.step(optimizer)
                     schedule.step()
+                    scaler.update()
 
                     # logging
                     lr = schedule.get_last_lr()[0]
@@ -126,6 +136,9 @@ class HParams(utils.HParams):
 
     # wandb project
     project_name = 'feldberlin-wavenet'
+
+    # use mixed precision training
+    mixed_precision = True
 
     # once over the whole dataset, how many times max
     max_epochs = 10
