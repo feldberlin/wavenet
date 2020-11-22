@@ -12,16 +12,11 @@ from wavenet import utils, model, audio
 
 def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
     "Sample with the given utils.decode_* decoder function."
-
-    # gpu thx
-    g, device = Generator(m), 'cpu'
-    if torch.cuda.is_available():
-        device = torch.cuda.current_device()
-        g = torch.nn.DataParallel(g).to(device)
+    g, device = Generator(m).to_device()
+    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1))
 
     # one sample at a time from and into the memoised network
     track = None
-    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1))
     for i in range(n_samples):
         logits, _ = g.forward(sample.float().to(device))
         sample = utils.quantized_audio_from_class_idxs(decoder(logits), m.cfg)
@@ -59,6 +54,12 @@ class Generator(model.Wavenet):
         self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)
         self.b1x1 = to_conv1d(m.b1x1)
+
+    def to_device(self):
+        if torch.cuda.is_available():
+            device = torch.cuda.current_device()
+            return torch.nn.DataParallel(self).to(device), device
+        return self, 'cpu'
 
 
 class ResBlock(model.ResBlock):
