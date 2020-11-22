@@ -6,6 +6,7 @@ from collections import deque
 
 import torch
 import torch.nn as nn
+import torch.cuda as cuda
 
 from wavenet import utils, model, audio
 
@@ -56,9 +57,8 @@ class Generator(model.Wavenet):
         self.b1x1 = to_conv1d(m.b1x1)
 
     def to_device(self):
-        if torch.cuda.is_available():
-            device = torch.cuda.current_device()
-            return torch.nn.DataParallel(self).to(device), device
+        if cuda.is_available():
+            return nn.DataParallel(self).to(device), cuda.current_device()
         return self, 'cpu'
 
 
