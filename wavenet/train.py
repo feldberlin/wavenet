@@ -57,6 +57,7 @@ class Trainer:
         wandb.init(project=cfg.project_name)
         wandb.config.update(utils.cfgdict(model_cfg, cfg))
         wandb.watch(model, log='all')
+        wandb.save('checkpoints.*')
 
         # lr schedule
         schedule = utils.onecycle(optimizer, len(self.trainset), cfg)
@@ -101,8 +102,8 @@ class Trainer:
                             model.parameters(), cfg.grad_norm_clip
                         )
                     scaler.step(optimizer)
-                    schedule.step()
                     scaler.update()
+                    schedule.step()
 
                     # logging
                     lr = schedule.get_last_lr()[0]

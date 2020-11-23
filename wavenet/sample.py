@@ -14,19 +14,20 @@ from wavenet import utils, model, audio
 def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
     "Sample with the given utils.decode_* decoder function."
     g, device = Generator(m).to_device()
-    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1))
+    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1)).to(device)
 
     # one sample at a time from and into the memoised network
     track = None
     for i in range(n_samples):
-        logits, _ = g.forward(sample.float().to(device))
-        sample = utils.quantized_audio_from_class_idxs(decoder(logits), m.cfg)
+        logits, _ = g.forward(sample.float())
+        idxs = decoder(logits)
+        sample = utils.quantized_audio_from_class_idxs(idxs, m.cfg)
         if track is not None:
-            track = torch.cat([track, sample], -1)
+            track = torch.cat([track, sample.detach().cpu()], -1)
         else:
-            track = sample
+            track = sample.detach().cpu()
 
-    return track, audio.mu_expand(track.detach().numpy(), m.cfg)
+    return track, audio.mu_expand(track.numpy(), m.cfg)
 
 
 class Generator(model.Wavenet):
@@ -57,7 +58,8 @@ class Generator(model.Wavenet):
         self.b1x1 = to_conv1d(m.b1x1)
 
     def to_device(self):
-        if cuda.is_available():
+        use_gpu = False
+        if use_gpu and cuda.is_available():
             device = cuda.current_device()
             return self.to(device), device
         return self, 'cpu'
