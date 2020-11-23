@@ -68,10 +68,7 @@ def decode_nucleus(core_mass: float = 0.95):
         sorted, idxs = torch.sort(logits, dim=1)
         csum = torch.cumsum(F.softmax(sorted, dim=1), dim=1)
         logits[:, idxs[csum > core_mass]] = -float('Inf')
-        posterior = F.softmax(logits, dim=1)
-        posterior = posterior.squeeze(-1).permute(0, 2, 1)
-        d = torch.distributions.Categorical(posterior)
-        return d.sample().unsqueeze(-1)
+        return decode_random(logits)
     return fn
 
 
