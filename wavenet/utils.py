@@ -110,7 +110,6 @@ class HParams():
 
 # lifecycle
 
-def load_chkpt(chkpt_path, p):
-    m = model.Wavenet(p)
-    m.load_state_dict(torch.load(chkpt_path));
+def load_chkpt(m, chkpt_path):
+    m.load_state_dict(torch.load(chkpt_path))
     return m
