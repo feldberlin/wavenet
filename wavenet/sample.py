@@ -58,7 +58,8 @@ class Generator(model.Wavenet):
 
     def to_device(self):
         if cuda.is_available():
-            return nn.DataParallel(self).to(device), cuda.current_device()
+            device = cuda.current_device()
+            return self.to(device), device
         return self, 'cpu'
 
 
