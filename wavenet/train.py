@@ -56,6 +56,7 @@ class Trainer:
         # telemetry
         wandb.init(project=cfg.project_name)
         wandb.config.update(utils.cfgdict(model_cfg, cfg))
+        wandb.config.update({'dataset': self.trainset.name()})
         wandb.watch(model, log='all')
         wandb.save('checkpoints.*')
 

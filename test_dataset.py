@@ -9,12 +9,14 @@ def test_stereo_impulse_dataset():
     assert len(d) == 10
     assert d[0].shape == (2, 4)
     assert d[:].shape == (10, 2, 4)
+    assert d.name() == 'StereoImpulse()'
 
 
 def test_track_dataset():
     d = datasets.Track('data/short.wav', model.HParams())
     assert len(d) == 16
     assert d[:].shape == (16, 2, 16000)
+    assert d.name() == 'Track(data/short.wav)'
 
 
 def test_track():
@@ -29,6 +31,7 @@ def test_sines_dataset():
     assert len(d) == 2
     assert d[0].shape == (2, 16000)
     assert d[1].shape == (2, 16000)
+    assert d.name() == 'Sines(1)'
 
 
 def test_sines_dataset_stacked():

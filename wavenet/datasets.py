@@ -19,6 +19,7 @@ class Track(Dataset):
     """
 
     def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
+        self.filename = filename
         y = audio.load_resampled(filename, p)
         _, n_samples = y.shape
         y = y[:, int(n_samples * start):int(n_samples * end)]  # start to end
@@ -34,6 +35,9 @@ class Track(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx]
+
+    def name(self):
+        return f'Track({self.filename})'
 
 
 class StereoImpulse(Dataset):
@@ -59,6 +63,9 @@ class StereoImpulse(Dataset):
     def __getitem__(self, idx):
         return self.X[idx]
 
+    def name(self):
+        return f'StereoImpulse()'
+
 
 class Sines(Dataset):
     "Each sample is a simple sine wave with random amplitude and phase."
@@ -82,3 +89,6 @@ class Sines(Dataset):
             return y.repeat(2, 1)
         else:
             return y
+
+    def name(self):
+        return f'Sines({self.n_seconds})'
