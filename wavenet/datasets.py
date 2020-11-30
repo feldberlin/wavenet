@@ -36,7 +36,7 @@ class Track(Dataset):
     def __getitem__(self, idx):
         return self.X[idx]
 
-    def name(self):
+    def __repr__(self):
         return f'Track({self.filename})'
 
 
@@ -63,7 +63,7 @@ class StereoImpulse(Dataset):
     def __getitem__(self, idx):
         return self.X[idx]
 
-    def name(self):
+    def __repr__(self):
         return f'StereoImpulse()'
 
 
@@ -90,5 +90,5 @@ class Sines(Dataset):
         else:
             return y
 
-    def name(self):
+    def __repr__(self):
         return f'Sines({self.n_seconds})'
