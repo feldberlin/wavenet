@@ -49,7 +49,7 @@ def test_wavenet_modules_registered():
 
 def test_logit_jacobian_first_sample():
     p = model.HParams()
-    X = datasets.stereo_impulse_at_t0(1, 1,  p)
+    X = datasets.StereoImpulse(1, 1,  p)
     m = model.Wavenet(p)
 
     def logits(X):
@@ -58,7 +58,7 @@ def test_logit_jacobian_first_sample():
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
-    j = jacobian(logits, X)
+    j = jacobian(logits, X[:])
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))
@@ -69,7 +69,7 @@ def test_logit_jacobian_first_sample():
 
 def test_logit_jacobian_many_samples():
     p = model.HParams()
-    X = datasets.stereo_impulse_at_t0(1, 8,  p)  # 8 samples
+    X = datasets.StereoImpulse(1, 8,  p)  # 8 samples
     m = model.Wavenet(p)
 
     def logits(X):
@@ -78,7 +78,7 @@ def test_logit_jacobian_many_samples():
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
-    j = jacobian(logits, X)
+    j = jacobian(logits, X[:])
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))
@@ -89,7 +89,7 @@ def test_logit_jacobian_many_samples():
 
 def test_loss_jacobian_many_samples():
     p = model.HParams()
-    X = datasets.stereo_impulse_at_t0(1, 8,  p)  # 8 samples
+    X = datasets.StereoImpulse(1, 8,  p)  # 8 samples
     m = model.Wavenet(p)
 
     def loss(audio):
@@ -99,7 +99,7 @@ def test_loss_jacobian_many_samples():
         return losses.sum(1)  # N, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
-    j = jacobian(loss, X)
+    j = jacobian(loss, X[:])
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))

@@ -25,6 +25,13 @@ def resample(y: np.array, input_sr: int, p):
     return y
 
 
+def frame(y, p):
+    "Cut frames from a single track"
+    y = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2**13)
+    y = np.expand_dims(y, axis=0) if y.ndim == 2 else y  # mono case
+    return y
+
+
 def mu_compress(x: np.array, p):
     "Mu expand from C, W in [-1., 1.] to C, W in [-128, 127]"
     return librosa.mu_compress(x, mu=p.n_classes-1, quantize=True)
@@ -33,16 +40,6 @@ def mu_compress(x: np.array, p):
 def mu_expand(x: np.array, p):
     "Mu expand from C, W in [-128, 127] to C, W in [-1., 1.]"
     return librosa.mu_expand(x, mu=p.n_classes-1, quantize=True)
-
-
-def load_dataset_from_track(filename: str, p):
-    "Load many slices from a single track into N, C, W in [-1., 1.]"
-    y = to_librosa(load_resampled(filename, p))
-    ys = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2**13)
-    ys = np.expand_dims(ys, axis=0) if ys.ndim == 2 else ys  # mono case
-    ys = np.moveaxis(ys, -1, 0)
-    ys = torch.tensor(ys, dtype=torch.float32)
-    return ys[1:, :, :]  # remove hoplength leading silence
 
 
 def mu_compress_batch(x: np.array, p):

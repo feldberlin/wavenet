@@ -17,17 +17,18 @@ def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
     sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1)).to(device)
 
     # one sample at a time from and into the memoised network
-    track = None
-    for i in range(n_samples):
-        logits, _ = g.forward(sample.float())
-        idxs = decoder(logits)
-        sample = utils.quantized_audio_from_class_idxs(idxs, m.cfg)
-        if track is not None:
-            track = torch.cat([track, sample.detach().cpu()], -1)
-        else:
-            track = sample.detach().cpu()
+    with torch.set_grad_enabled(False):
+        track = None
+        for i in range(n_samples):
+            logits, _ = g.forward(sample.float())
+            idxs = decoder(logits)
+            sample = utils.quantized_audio_from_class_idxs(idxs, m.cfg)
+            if track is not None:
+                track = torch.cat([track, sample.detach().cpu()], -1)
+            else:
+                track = sample.detach().cpu()
 
-    return track, audio.mu_expand(track.numpy(), m.cfg)
+        return track, audio.mu_expand(track.numpy(), m.cfg)
 
 
 class Generator(model.Wavenet):
