@@ -31,7 +31,7 @@ def test_sines_dataset():
     assert len(d) == 2
     assert d[0].shape == (2, 16000)
     assert d[1].shape == (2, 16000)
-    assert repr(d) == 'Sines(1)'
+    assert repr(d) == 'Sines(nseconds: 1)'
 
 
 def test_sines_dataset_stacked():
@@ -43,4 +43,4 @@ def test_sines_dataset_stacked():
 def test_sines_dataloader():
     d = datasets.Sines(10, 1, model.HParams())
     l = torch.utils.data.dataloader.DataLoader(d, batch_size=4)
-    assert list(l)[0].shape == (4, 2, 16000)
+    assert next(iter(l)).shape == (4, 2, 16000)

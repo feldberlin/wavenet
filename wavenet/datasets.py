@@ -68,7 +68,7 @@ class StereoImpulse(Dataset):
 
 
 class Sines(Dataset):
-    "Each sample is a simple sine wave with random amplitude and phase."
+    "Each sample is a μ compressed sine wave with random amplitude and phase."
 
     def __init__(self, n_examples, n_seconds, cfg, minhz = 400, maxhz = 20000):
         self.hz = torch.rand(n_examples) * maxhz + minhz
@@ -85,10 +85,9 @@ class Sines(Dataset):
         x = torch.arange(0, self.n_seconds, 1 / self.cfg.sampling_rate)
         y = torch.sin((x - phase) * np.pi * 2 * hz) * amp
         y = y.unsqueeze(0)  # C, W
-        if self.cfg.stereo:
-            return y.repeat(2, 1)
-        else:
-            return y
+        if self.cfg.stereo: y = y.repeat(2, 1)
+        y = audio.mu_compress(y.numpy(), self.cfg)
+        return torch.from_numpy(y).float()
 
     def __repr__(self):
-        return f'Sines({self.n_seconds})'
+        return f'Sines(nseconds: {self.n_seconds})'
