@@ -14,14 +14,14 @@ def tracks(filename: str, validation_pct: float, p):
 
 
 class Track(Dataset):
-    """Dataset constructed from a single track
+    """Dataset constructed from a single track, held in memory.
     Loads μ compressed  slices from a single track into N, C, W in [-1., 1.].
     """
 
     def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
         y = audio.load_resampled(filename, p)
-        _, nsamples = y.shape
-        y = y[:, int(nsamples * start):int(nsamples * end)]  # start to end
+        _, n_samples = y.shape
+        y = y[:, int(n_samples * start):int(n_samples * end)]  # start to end
         y = audio.to_librosa(y)
         ys = audio.frame(y, p)
         ys = np.moveaxis(ys, -1, 0)
@@ -38,7 +38,7 @@ class Track(Dataset):
 
 class StereoImpulse(Dataset):
     """Left and right at t0 are both binomial, modes slightly apart.
-    Batch of m impulses at t0, followed by n zero samples.
+    Batch of m impulses at t0, followed by n zero samples, held in memory.
     """
 
     def __init__(self, n, m, cfg, probs=None):
@@ -58,3 +58,27 @@ class StereoImpulse(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx]
+
+
+class Sines(Dataset):
+    "Each sample is a simple sine wave with random amplitude and phase."
+
+    def __init__(self, n_examples, n_seconds, cfg, minhz = 400, maxhz = 20000):
+        self.hz = torch.rand(n_examples) * maxhz + minhz
+        self.amp = torch.rand(n_examples)
+        self.phase = torch.rand(n_examples) * np.pi * 2 / self.hz
+        self.n_seconds = n_seconds
+        self.cfg = cfg
+
+    def __len__(self):
+        return self.hz.shape[0]
+
+    def __getitem__(self, idx):
+        hz, amp, phase = self.hz[idx], self.amp[idx], self.phase[idx]
+        x = torch.arange(0, self.n_seconds, 1 / self.cfg.sampling_rate)
+        y = torch.sin((x - phase) * np.pi * 2 * hz) * amp
+        y = y.unsqueeze(0)  # C, W
+        if self.cfg.stereo:
+            return y.repeat(2, 1)
+        else:
+            return y

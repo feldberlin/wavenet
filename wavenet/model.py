@@ -153,6 +153,9 @@ class HParams(utils.HParams):
     # e.g. 1, 2, 4...128, 1, 2, 4...128 is 2 dilation stacks.
     dilation_stacks = 3
 
+    # random seed
+    seed = 5762
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
