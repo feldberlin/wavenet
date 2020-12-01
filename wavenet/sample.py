@@ -71,6 +71,7 @@ class ResBlock(model.ResBlock):
         super(model.ResBlock, self).__init__()
         self.conv = Memo(to_conv1d(r.conv), r.conv.dilation[0])
         self.end1x1 = to_conv1d(r.end1x1)
+        self.skip1x1 = to_conv1d(r.skip1x1)
 
 
 class Memo(nn.Module):
