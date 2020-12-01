@@ -123,8 +123,7 @@ def test_loss_stable_across_batch_sizes():
             m = model.Wavenet(p)
             _, loss = m.forward(batch)
             losses.append(loss.detach().numpy())
-
         batch_sizes[k] = (np.mean(losses), np.std(losses))
 
     means = [v[0] for v in batch_sizes.values()]
-    assert np.std(means) < 0.1, batch_sizes
+    assert np.std(means) < 0.2, batch_sizes
