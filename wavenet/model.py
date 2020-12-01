@@ -161,6 +161,9 @@ class HParams(utils.HParams):
     # random seed
     seed = 5762
 
+    # run the generator on gpus
+    sample_from_gpu = False
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)

@@ -59,8 +59,7 @@ class Generator(model.Wavenet):
         self.b1x1 = to_conv1d(m.b1x1)
 
     def to_device(self):
-        use_gpu = False
-        if use_gpu and cuda.is_available():
+        if self.cfg.sample_from_gpu and cuda.is_available():
             device = cuda.current_device()
             return self.to(device), device
         return self, 'cpu'
