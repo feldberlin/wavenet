@@ -109,6 +109,6 @@ class HParams():
 # lifecycle
 
 def load_chkpt(m, run_path):
-    chkpt = wandb.restore('checkpoint.best.test', run_path=run_path)
+    chkpt = wandb.restore('checkpoints.best.test', run_path=run_path)
     m.load_state_dict(torch.load(chkpt.name))
     return m
