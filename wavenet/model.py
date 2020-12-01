@@ -57,8 +57,8 @@ class Wavenet(nn.Module):
             x = F.relu(self.input(x))
             skips = 0
             for block in self.layers:
-                x = block(x)
-                skips += x
+                x, s = block(x)
+                skips += s
 
             x = F.relu(skips)
             x = F.relu(self.a1x1(x))
@@ -87,9 +87,14 @@ class ResBlock(nn.Module):
         )
 
         self.end1x1 = nn.Conv1d(n_chans, n_chans, kernel_size=1)
+        self.skip1x1 = nn.Conv1d(n_chans, n_chans, kernel_size=1)
 
     def forward(self, x):
-        return self.end1x1(F.glu(self.conv(x), dim=1)) + x
+        gated = F.glu(self.conv(x), dim=1)
+        return (
+            self.end1x1(gated) + x,
+            self.skip1x1(gated)
+        )
 
 
 class Causal1d(nn.Conv1d):
