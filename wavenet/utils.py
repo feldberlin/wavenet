@@ -3,6 +3,7 @@ import inspect
 import torch
 from torch.nn import functional as F
 from torch.optim import lr_scheduler
+import wandb
 
 
 # logits and normalisation
@@ -107,6 +108,7 @@ class HParams():
 
 # lifecycle
 
-def load_chkpt(m, chkpt_path):
-    m.load_state_dict(torch.load(chkpt_path))
+def load_chkpt(m, run_path):
+    chkpt = wandb.restore('checkpoint.best.test', run_path=run_path)
+    m.load_state_dict(torch.load(chkpt.name))
     return m
