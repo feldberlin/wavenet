@@ -34,6 +34,14 @@ def test_sines_dataset():
     assert repr(d) == 'Sines(nseconds: 1)'
 
 
+def test_sines_fixed_amp_dataset():
+    d = datasets.Sines(2, 1, model.HParams(), amp=0.5, hz=440)
+    assert len(d) == 2
+    assert d[0].shape == (2, 16000)
+    assert d[1].shape == (2, 16000)
+    assert repr(d) == 'Sines(nseconds: 1, amp: 0.5, hz: 440)'
+
+
 def test_sines_dataset_stacked():
     d = datasets.Sines(2, 1, model.HParams())
     stacked = torch.stack([d[i] for i in range(len(d))])

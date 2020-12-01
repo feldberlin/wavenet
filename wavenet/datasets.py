@@ -74,26 +74,50 @@ class StereoImpulse(Dataset):
 
 
 class Sines(Dataset):
-    "Each sample is a μ compressed sine wave with random amplitude and phase."
+    """Each sample is a μ compressed sine wave with random amp and phase.
+    Random amplitude and hz, unless given.
+    """
 
-    def __init__(self, n_examples, n_seconds, cfg, minhz = 400, maxhz = 20000):
-        self.hz = torch.rand(n_examples) * maxhz + minhz
-        self.amp = torch.rand(n_examples)
-        self.phase = torch.rand(n_examples) * np.pi * 2 / self.hz
+    def __init__(self, n_examples, n_seconds, cfg,
+                 amp: float = None, hz: float = None, phase: float = None,
+                 minhz = 400, maxhz = 20000):
+
+        # config
         self.n_seconds = n_seconds
+        self.n_examples = n_examples
         self.cfg = cfg
 
+        # draw random parameters at init
+        self.amp = amp if amp else torch.rand(n_examples)
+        self.hz = hz if hz else torch.rand(n_examples) * maxhz + minhz
+        self.phase = phase if phase else torch.rand(n_examples) * np.pi * 2 / self.hz
+
     def __len__(self):
-        return self.hz.shape[0]
+        return self.n_examples
 
     def __getitem__(self, idx):
-        hz, amp, phase = self.hz[idx], self.amp[idx], self.phase[idx]
+
+        # retrieve parameters for this example
+        amp = self.amp if np.isscalar(self.amp) else self.amp[idx]
+        hz = self.hz if np.isscalar(self.hz) else self.hz[idx]
+        phase = self.phase if np.isscalar(self.phase) else self.phase[idx]
+
+        # calculate signal
         x = torch.arange(0, self.n_seconds, 1 / self.cfg.sampling_rate)
         y = torch.sin((x - phase) * np.pi * 2 * hz) * amp
         y = y.unsqueeze(0)  # C, W
+
         if self.cfg.stereo: y = y.repeat(2, 1)
         y = audio.mu_compress(y.numpy(), self.cfg)
         return torch.from_numpy(y).float()
 
     def __repr__(self):
-        return f'Sines(nseconds: {self.n_seconds})'
+        x = [('nseconds', self.n_seconds)]
+        if np.isscalar(self.amp):
+            x.append(('amp', self.amp))
+        if np.isscalar(self.hz):
+            x.append(('hz', self.hz))
+        if np.isscalar(self.phase):
+            x.append(('phase', self.phase))
+        x = ', '.join([f'{k}: {v}' for k, v in x])
+        return f'Sines({ x })'
