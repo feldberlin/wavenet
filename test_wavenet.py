@@ -116,7 +116,7 @@ def test_loss_stable_across_batch_sizes():
     batch_sizes = {1: None, 100: None}
     for k in batch_sizes.keys():
         losses = []
-        for i in range(50):
+        for i in range(100):
             p = model.HParams()
             X = datasets.StereoImpulse(k, 8,  p)
             batch = torch.stack([X[i] for i in range(len(X))])
@@ -126,4 +126,4 @@ def test_loss_stable_across_batch_sizes():
         batch_sizes[k] = (np.mean(losses), np.std(losses))
 
     means = [v[0] for v in batch_sizes.values()]
-    assert np.std(means) < 0.2, batch_sizes
+    assert np.std(means) < 0.25, batch_sizes
