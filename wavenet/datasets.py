@@ -5,6 +5,12 @@ import torch
 from wavenet import utils, audio
 
 
+def to_tensor(d: Dataset, n_items = None):
+    "Materialize the whole dataset"
+    n_items = n_items if n_items else len(d)
+    return torch.stack([d[i] for i in range(n_items)])
+
+
 def tracks(filename: str, validation_pct: float, p):
     "Train - validation split on a single track"
     return (
