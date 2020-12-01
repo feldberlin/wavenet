@@ -19,7 +19,7 @@ class Wavenet(nn.Module):
     in [-128, 127].
     """
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, run_path=None):
         super().__init__()
         self.cfg = cfg
 
@@ -42,6 +42,10 @@ class Wavenet(nn.Module):
         # the final network in network dense layers
         self.a1x1 = nn.Conv1d(cfg.n_chans, cfg.n_chans, kernel_size=1)
         self.b1x1 = nn.Conv1d(cfg.n_chans, cfg.n_logits(), kernel_size=1)
+
+        # load a checkpoint
+        if run_path:
+            utils.load_chkpt(self, run_path)
 
     def forward(self, audio):
         """Audio is trained on (N, C, W) batches.
