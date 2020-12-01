@@ -1,8 +1,11 @@
+import numpy as np
 import torch
 from torch.nn import functional as F
 from torch.autograd.functional import jacobian
 
 from wavenet import model, utils, datasets
+
+import pytest
 
 
 def test_hparams():
@@ -18,13 +21,13 @@ def test_hparams_override():
 
 def test_wavenet_output_shape():
     m = model.Wavenet(model.HParams())
-    x, loss = m.forward((torch.rand(3, 2, 4) * 2 - 1).float())
+    x, _ = m.forward((torch.rand(3, 2, 4) * 2 - 1).float())
     assert x.shape == (3, 256, 2, 4)
 
 
 def test_wavenet_mono_output_shape():
     m = model.Wavenet(model.HParams(n_audio_chans=1))
-    x, loss = m.forward((torch.rand(3, 1, 4) * 2 - 1).float())
+    x, _ = m.forward((torch.rand(3, 1, 4) * 2 - 1).float())
     assert x.shape == (3, 256, 1, 4)
 
 
@@ -54,7 +57,7 @@ def test_logit_jacobian_first_sample():
 
     def logits(X):
         "we are only interested in the time dimensions W. keeping n for loss"
-        logits, loss = m.forward(X)
+        logits, _ = m.forward(X)
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
@@ -74,7 +77,7 @@ def test_logit_jacobian_many_samples():
 
     def logits(X):
         "we are only interested in the time dimensions W. keeping n for loss"
-        logits, loss = m.forward(X)
+        logits, _ = m.forward(X)
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
@@ -93,7 +96,7 @@ def test_loss_jacobian_many_samples():
     m = model.Wavenet(p)
 
     def loss(audio):
-        logits, loss = m.forward(audio)
+        logits, _ = m.forward(audio)
         targets = utils.quantized_audio_to_class_idxs(audio, p)
         losses = F.cross_entropy(logits, targets, reduction='none')
         return losses.sum(1)  # N, C, W -> N, W
@@ -106,3 +109,22 @@ def test_loss_jacobian_many_samples():
 
     # jacobian must be lower triangular
     assert torch.equal(torch.tril(j), j)
+
+
+@pytest.mark.integration
+def test_loss_stable_across_batch_sizes():
+    batch_sizes = {1: None, 100: None}
+    for k in batch_sizes.keys():
+        losses = []
+        for i in range(50):
+            p = model.HParams()
+            X = datasets.StereoImpulse(k, 8,  p)
+            batch = torch.stack([X[i] for i in range(len(X))])
+            m = model.Wavenet(p)
+            _, loss = m.forward(batch)
+            losses.append(loss.detach().numpy())
+
+        batch_sizes[k] = (np.mean(losses), np.std(losses))
+
+    means = [v[0] for v in batch_sizes.values()]
+    assert np.std(means) < 0.1, batch_sizes
