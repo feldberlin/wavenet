@@ -61,13 +61,15 @@ def decode_argmax(logits):
 
 def decode_nucleus(core_mass: float = 0.95):
     """Convert N, K, C, 1 logits into N, C, 1 samples by nucleus sampling"
-    as proposed in https://arxiv.org/pdf/1904.09751.pdf
+    as proposed in https://arxiv.org/pdf/1904.09751.pdf. core_mass is the
+    retained probablity mass. Seeting core_mass to 0. is equivalent to argmax.
     """
     def fn(logits):
         N, K, C, W = logits.shape
         assert W == 1
-        sorted, idxs = torch.sort(logits, dim=1)
+        sorted, idxs = torch.sort(logits, dim=1, descending=True)
         csum = torch.cumsum(F.softmax(sorted, dim=1), dim=1)
+        csum[:, 0] = 0.  # always include
         logits[:, idxs[csum > core_mass]] = -float('Inf')
         return decode_random(logits)
     return fn

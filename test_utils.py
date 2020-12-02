@@ -68,3 +68,16 @@ def test_decode_nucleus():
     ]])
 
     assert utils.decode_nucleus()(logits).shape == (1, 2, 1)
+
+
+def test_decode_with_zero_nucleus_is_equivalent_to_argmax():
+    logits = torch.tensor([[
+        [[1.], [1.]],
+        [[4.], [4.]],
+        [[2.], [2.]],
+        [[3.], [3.]]
+    ]])
+
+    want = utils.decode_argmax(logits)
+    got = utils.decode_nucleus(0.)(logits)
+    assert torch.equal(want, got)
