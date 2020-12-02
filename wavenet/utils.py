@@ -68,9 +68,11 @@ def decode_nucleus(core_mass: float = 0.95):
         N, K, C, W = logits.shape
         assert W == 1
         sorted, idxs = torch.sort(logits, dim=1, descending=True)
+        _, reverse_idxs = torch.sort(idxs, dim=1)
         csum = torch.cumsum(F.softmax(sorted, dim=1), dim=1)
-        csum[:, 0] = 0.  # always include
-        logits[:, idxs[csum > core_mass]] = -float('Inf')
+        remove = csum > core_mass
+        remove[:, 0] = False  # always include the top probability
+        logits[torch.gather(remove, 1, reverse_idxs)] = -float('Inf')
         return decode_random(logits)
     return fn
 
