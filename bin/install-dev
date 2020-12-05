@@ -6,4 +6,6 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install -r requirements.dev.txt
+jupyter labextension install @jupyter-widgets/jupyterlab-manager
+jupyter lab build
 python -m ipykernel install --user --name=.venv
