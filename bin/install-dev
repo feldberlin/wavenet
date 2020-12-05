@@ -2,10 +2,16 @@
 #
 # Run this once to install the dev environment.
 
+# virtual env
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install -r requirements.dev.txt
-jupyter labextension install @jupyter-widgets/jupyterlab-manager
-jupyter lab build
+
+# jupyter lab magic foo
+jupyter labextension install @jupyter-widgets/jupyterlab-manager@1.0
+jupyter labextension install jupyter-matplotlib
+jupyter nbextension enable --py widgetsnbextension
+
+# kernel
 python -m ipykernel install --user --name=.venv
