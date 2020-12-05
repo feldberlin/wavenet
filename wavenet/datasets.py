@@ -34,7 +34,8 @@ class Track(Dataset):
         ys = np.moveaxis(ys, -1, 0)
         ys = torch.tensor(ys, dtype=torch.float32)
         ys = ys[1:, :, :]  # trim hoplength leading silence
-        self.X = audio.mu_compress_batch(ys, p)
+        ys = audio.mu_compress_batch(ys, p)
+        self.X = torch.from_numpy(ys).float()
 
     def __len__(self):
         return self.X.shape[0]

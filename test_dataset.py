@@ -19,6 +19,14 @@ def test_track_dataset():
     assert repr(d) == 'Track(fixtures/short.wav)'
 
 
+def test_track_dataset_stacked():
+    d = datasets.Track('fixtures/short.wav', model.HParams())
+    stacked = datasets.to_tensor(d)
+    assert stacked.shape == (16, 2, 16000)
+    assert torch.min(stacked) >= -128.0
+    assert torch.max(stacked) <= 127.0
+
+
 def test_track():
     p = model.HParams()
     trainset, testset = datasets.tracks('fixtures/short.wav', 0.4, p)
@@ -44,8 +52,10 @@ def test_sines_fixed_amp_dataset():
 
 def test_sines_dataset_stacked():
     d = datasets.Sines(2, 1, model.HParams())
-    stacked = torch.stack([d[i] for i in range(len(d))])
+    stacked = datasets.to_tensor(d)
     assert stacked.shape == (2, 2, 16000)
+    assert torch.min(stacked) >= -128.0
+    assert torch.max(stacked) <= 127.0
 
 
 def test_sines_dataloader():
