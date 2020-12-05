@@ -1,0 +1,53 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.10.9
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.7.2
+dilation_stacks:
+  desc: null
+  value: 3
+kernel_size:
+  desc: null
+  value: 2
+n_audio_chans:
+  desc: null
+  value: 2
+n_chans:
+  desc: null
+  value: 2
+n_classes:
+  desc: null
+  value: 256
+n_layers:
+  desc: null
+  value: 10
+resample:
+  desc: null
+  value: true
+sample_length:
+  desc: null
+  value: 16000
+sampling_rate:
+  desc: null
+  value: 16000
+stereo:
+  desc: null
+  value: true
+train:
+  desc: null
+  value:
+    batch_size: 64
+    betas:
+    - 0.9
+    - 0.95
+    callback_fq: 8
+    grad_norm_clip: null
+    learning_rate: 0.0003
+    max_epochs: 1
+    num_workers: 0
+    project_name: feldberlin-wavenet

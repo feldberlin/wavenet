@@ -8,7 +8,14 @@ import torch
 import torch.nn as nn
 import torch.cuda as cuda
 
-from wavenet import utils, model, audio
+from wavenet import utils, model, train, audio
+
+
+def load(run_path):
+    "Load config and model from wandb"
+    p, ptrain = utils.load_wandb_cfg(run_path)
+    p, ptrain = model.HParams(**p), train.HParams(**ptrain)
+    return utils.load_chkpt(model.Wavenet(p), run_path), ptrain
 
 
 def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):

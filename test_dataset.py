@@ -13,15 +13,15 @@ def test_stereo_impulse_dataset():
 
 
 def test_track_dataset():
-    d = datasets.Track('data/short.wav', model.HParams())
+    d = datasets.Track('fixtures/short.wav', model.HParams())
     assert len(d) == 16
     assert d[:].shape == (16, 2, 16000)
-    assert repr(d) == 'Track(data/short.wav)'
+    assert repr(d) == 'Track(fixtures/short.wav)'
 
 
 def test_track():
     p = model.HParams()
-    trainset, testset = datasets.tracks('data/short.wav', 0.4, p)
+    trainset, testset = datasets.tracks('fixtures/short.wav', 0.4, p)
     assert trainset[:].shape == (9, 2, 16000)
     assert testset[:].shape == (5, 2, 16000)
 

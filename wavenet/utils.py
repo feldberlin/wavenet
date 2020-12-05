@@ -1,4 +1,5 @@
 import inspect
+import yaml
 
 import torch
 from torch.nn import functional as F
@@ -92,6 +93,15 @@ def onecycle(optimizer, n_examples, cfg):
     return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=n_steps)
 
 
+# lifecycle
+
+
+def load_chkpt(m, run_path):
+    chkpt = wandb.restore('checkpoints.best.test', run_path=run_path)
+    m.load_state_dict(torch.load(chkpt.name))
+    return m
+
+
 # config
 
 def cfgdict(model_cfg, train_cfg):
@@ -110,9 +120,17 @@ class HParams():
         return iter({**f(self.__class__), **f(self)}.items())
 
 
-# lifecycle
+def load_hparams(path):
+    "Load model, train cfgs from wandb formatted yaml"
+    p = yaml.safe_load(path)
+    del p['_wandb']
+    del p['wandb_version']
+    return (
+        { k: v['value'] for k, v in p.items() },
+        p.pop('train')['value']
+    )
 
-def load_chkpt(m, run_path):
-    chkpt = wandb.restore('checkpoints.best.test', run_path=run_path)
-    m.load_state_dict(torch.load(chkpt.name))
-    return m
+
+def load_wandb_cfg(run_path):
+    "Load model and train cfg from wandb"
+    return load_hparams(wandb.restore('config.yaml', run_path=run_path))

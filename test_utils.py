@@ -19,6 +19,13 @@ def test_hparams_dict():
     assert dict(p) == {'a': 'b', 'foo': 'DELETED', 'baz': 'qux'}
 
 
+def test_load_hparams():
+    with open('fixtures/config.yaml', 'r') as f:
+        p, ptrain = utils.load_hparams(f)
+    assert p['dilation_stacks'] == 3
+    assert ptrain['batch_size'] == 64
+
+
 # schedules
 
 def test_lrfinder():
