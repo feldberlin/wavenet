@@ -126,7 +126,7 @@ def load_hparams(path):
     del p['_wandb']
     del p['wandb_version']
     return (
-        { k: v['value'] for k, v in p.items() },
+        { k: v['value'] for k, v in p.items() if k != 'train' },
         p.pop('train')['value']
     )
 

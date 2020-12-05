@@ -23,6 +23,7 @@ def test_load_hparams():
     with open('fixtures/config.yaml', 'r') as f:
         p, ptrain = utils.load_hparams(f)
     assert p['dilation_stacks'] == 3
+    assert not p.get('train', None)
     assert ptrain['batch_size'] == 64
 
 
