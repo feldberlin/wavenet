@@ -122,3 +122,50 @@ class Sines(Dataset):
             x.append(('phase', self.phase))
         x = ', '.join([f'{k}: {v}' for k, v in x])
         return f'Sines({ x })'
+
+
+class Tiny(Dataset):
+    """A toy dataset of non-linear series, as described in
+    https://fleuret.org/dlc/materials/dlc-slides-10-1-autoregression.pdf.
+    This dataset is tiny, non-linear, and includes local effects (slopes), as
+    well as global effects (a single discontinuity).
+    """
+
+    def __init__(self, n, m):
+
+        # Create m timeseries of length n, with a random split in each one
+        splits = torch.randint(0, n, (1, m))
+
+        # Let's create 2m randomly tilted timeseries. First of, we want 2m
+        # slopes between -1 and 1.  Then we'll broadcast along the x dimension
+        # to obtain a n, 2m tensor, where each column is a tilted timeseries.
+        x = torch.arange(n)
+        slopes = torch.rand(2*m) * 2 - 1
+        series = slopes.view(1, -1) * x.view(-1, 1)  # (1,2m) * (n,1) => (n,2m)
+
+        # Now we'll add another dimension and fill it with pairs of
+        # complementary series, to (n, m, 2).
+        series = series.reshape(n, -1, 2)
+
+        # shift the right series such that it starts at zero.
+        offsets = series[:, :, 1].gather(0, splits).squeeze()
+        series[:, :, 1] -= offsets
+
+        # Now, with the m split points between 0 and n, we create a mask where
+        # values are below those cutoff points. We will apply the mask to half
+        # the series, and the inverse of the mask to the complementary series.
+        mask =  torch.arange(n).unsqueeze(-1) > splits
+        mask = torch.stack((mask, ~mask), dim=-1)
+        series[mask] = 0
+
+        # Now we sum together along the final dimension to obtain the result.
+        series = torch.sum(series, dim=-1).long() + n
+
+        # conventionally introduce a single channel dimension
+        self.X = series.unsqueeze(0)
+
+    def __len__(self):
+        return self.X.shape[2]
+
+    def __getitem__(self, idx):
+        return self.X[:, :, idx]

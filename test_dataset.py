@@ -62,3 +62,10 @@ def test_sines_dataloader():
     d = datasets.Sines(10, 1, model.HParams())
     l = torch.utils.data.dataloader.DataLoader(d, batch_size=4)
     assert next(iter(l)).shape == (4, 2, 16000)
+
+
+def test_tiny_dataset():
+    d = datasets.Tiny(30, 4)
+    l = torch.utils.data.dataloader.DataLoader(d, batch_size=4)
+    assert len(d) == 4
+    assert next(iter(l)).shape == (4, 1, 30)
