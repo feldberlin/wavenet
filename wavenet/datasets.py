@@ -1,3 +1,5 @@
+# Datasets. Each enumerated element is (x, y) with normalised x.
+
 import numpy as np
 from torch.utils.data import Dataset
 import torch
@@ -8,7 +10,10 @@ from wavenet import utils, audio
 def to_tensor(d: Dataset, n_items = None):
     "Materialize the whole dataset"
     n_items = n_items if n_items else len(d)
-    return torch.stack([d[i] for i in range(n_items)])
+    return (
+        torch.stack([d[i][0] for i in range(n_items)]),
+        torch.stack([d[i][1] for i in range(n_items)])
+    )
 
 
 def tracks(filename: str, validation_pct: float, p):
@@ -21,7 +26,7 @@ def tracks(filename: str, validation_pct: float, p):
 
 class Track(Dataset):
     """Dataset constructed from a single track, held in memory.
-    Loads μ compressed  slices from a single track into N, C, W in [-1., 1.].
+    Loads μ compressed slices from a single track into N, C, W in [-1., 1.].
     """
 
     def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
@@ -41,7 +46,7 @@ class Track(Dataset):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        return self.X[idx]
+        return self.X[idx], self.X[idx]
 
     def __repr__(self):
         return f'Track({self.filename})'
@@ -68,7 +73,7 @@ class StereoImpulse(Dataset):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        return self.X[idx]
+        return self.X[idx], self.X[idx]
 
     def __repr__(self):
         return f'StereoImpulse()'
@@ -110,7 +115,8 @@ class Sines(Dataset):
 
         if self.cfg.stereo: y = y.repeat(2, 1)
         y = audio.mu_compress(y.numpy(), self.cfg)
-        return torch.from_numpy(y).float()
+        y = torch.from_numpy(y).float()
+        return y, y
 
     def __repr__(self):
         x = [('nseconds', self.n_seconds)]
@@ -164,8 +170,13 @@ class Tiny(Dataset):
         # conventionally introduce a single channel dimension
         self.X = series.unsqueeze(0)
 
+        # dataset stats
+        self.mean = torch.mean(self.X.float())
+        self.std = torch.std(self.X.float())
+
     def __len__(self):
         return self.X.shape[2]
 
     def __getitem__(self, idx):
-        return self.X[:, :, idx]
+        y = self.X[:, :, idx]
+        return (y - self.mean) / self.std, y

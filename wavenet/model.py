@@ -47,7 +47,7 @@ class Wavenet(nn.Module):
         if run_path:
             utils.load_chkpt(self, run_path)
 
-    def forward(self, audio):
+    def forward(self, x, y):
         """Audio is trained on (N, C, W) batches.
 
         There are C stereo input channels, W samples in each example. Logits
@@ -56,8 +56,8 @@ class Wavenet(nn.Module):
         """
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
-            N, C, W = audio.shape
-            x = utils.quantized_audio_to_unit_loudness(audio, self.cfg)
+            N, C, W = x.shape
+            x = utils.quantized_audio_to_unit_loudness(x, self.cfg)
             x = F.relu(self.input(x))
             skips = 0
             for block in self.layers:
@@ -68,7 +68,7 @@ class Wavenet(nn.Module):
             x = F.relu(self.a1x1(x))
             x = self.b1x1(x)
             x = x.view(N, self.cfg.n_classes, C, W)
-            y = utils.quantized_audio_to_class_idxs(audio, self.cfg)
+            y = utils.quantized_audio_to_class_idxs(y, self.cfg)
 
             return x, F.cross_entropy(x, y)
 

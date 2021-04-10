@@ -21,13 +21,17 @@ def test_hparams_override():
 
 def test_wavenet_output_shape():
     m = model.Wavenet(model.HParams())
-    x, _ = m.forward((torch.rand(3, 2, 4) * 2 - 1).float())
+    x = torch.rand(3, 2, 4) * 2 - 1
+    y = x.float()
+    x, _ = m.forward(x, y)
     assert x.shape == (3, 256, 2, 4)
 
 
 def test_wavenet_mono_output_shape():
     m = model.Wavenet(model.HParams(n_audio_chans=1))
-    x, _ = m.forward((torch.rand(3, 1, 4) * 2 - 1).float())
+    x = torch.rand(3, 1, 4) * 2 - 1
+    y = x.float()
+    x, _ = m.forward(x, y)
     assert x.shape == (3, 256, 1, 4)
 
 
@@ -57,13 +61,14 @@ def test_logit_jacobian_first_sample():
     X = datasets.StereoImpulse(1, 1,  p)
     m = model.Wavenet(p)
 
-    def logits(X):
+    def logits(x):
         "we are only interested in the time dimensions W. keeping n for loss"
-        logits, _ = m.forward(X)
+        logits, _ = m.forward(x, x)
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
-    j = jacobian(logits, X[:])
+    x, _ = X[0]
+    j = jacobian(logits, x.unsqueeze(0))
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))
@@ -77,13 +82,14 @@ def test_logit_jacobian_many_samples():
     X = datasets.StereoImpulse(1, 8,  p)  # 8 samples
     m = model.Wavenet(p)
 
-    def logits(X):
+    def logits(x):
         "we are only interested in the time dimensions W. keeping n for loss"
-        logits, _ = m.forward(X)
+        logits, _ = m.forward(x, x)
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
-    j = jacobian(logits, X[:])
+    x, _ = X[0]
+    j = jacobian(logits, x.unsqueeze(0))
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))
@@ -97,14 +103,15 @@ def test_loss_jacobian_many_samples():
     X = datasets.StereoImpulse(1, 8,  p)  # 8 samples
     m = model.Wavenet(p)
 
-    def loss(audio):
-        logits, _ = m.forward(audio)
-        targets = utils.quantized_audio_to_class_idxs(audio, p)
+    def loss(x):
+        logits, _ = m.forward(x, x)
+        targets = utils.quantized_audio_to_class_idxs(x, p)
         losses = F.cross_entropy(logits, targets, reduction='none')
         return losses.sum(1)  # N, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
-    j = jacobian(loss, X[:])
+    x, _ = X[0]
+    j = jacobian(loss, x.unsqueeze(0))
 
     # sum everything else to obtain WxW
     j = j.sum((0, 2, 3))
@@ -120,10 +127,9 @@ def test_loss_stable_across_batch_sizes():
         losses = []
         for i in range(100):
             p = model.HParams()
-            X = datasets.StereoImpulse(k, 8,  p)
-            batch = torch.stack([X[i] for i in range(len(X))])
+            x, y = datasets.to_tensor(datasets.StereoImpulse(k, 8,  p))
             m = model.Wavenet(p)
-            _, loss = m.forward(batch)
+            _, loss = m.forward(x, y)
             losses.append(loss.detach().numpy())
         batch_sizes[k] = (np.mean(losses), np.std(losses))
 

@@ -12,8 +12,10 @@ def test_generator_init():
 def test_generator_forward():
     m = model.Wavenet(model.HParams())
     g = sample.Generator(m)
-    x, loss = g.forward((torch.rand(2, 2, 1) * 2 - 1).float())
-    assert x.shape == (2, m.cfg.n_classes, m.cfg.n_audio_chans, 1)
+    x = torch.rand(2, 2, 1) * 2 - 1
+    y = x.float()
+    y, loss = g.forward(x, y)
+    assert y.shape == (2, m.cfg.n_classes, m.cfg.n_audio_chans, 1)
 
 
 def test_input_weights_generator_vs_wavenet():
@@ -54,8 +56,8 @@ def test_one_logit_generator_vs_wavenet():
     x = torch.zeros((1, m.cfg.n_audio_chans, 1))
 
     # a single forward pass through both networks
-    ym, _ = m.forward(x)
-    yg, _ = g.forward(x)
+    ym, _ = m.forward(x, x)
+    yg, _ = g.forward(x, x)
     ym = F.softmax(ym.squeeze(), dim=0)
     yg = F.softmax(yg.squeeze(), dim=0)
 
@@ -69,13 +71,13 @@ def test_many_logits_generator_vs_wavenet():
     x = torch.zeros((1, m.cfg.n_audio_chans, n_samples))
 
     # a single forward pass through wavenet
-    ym, _ = m.forward(x)
+    ym, _ = m.forward(x, x)
 
     # iterate forward on generator
     yg = None
     for i in range(n_samples):
         timestep = x[:, :, i:(i+1)]
-        logits, _ = g.forward(timestep.float())
+        logits, _ = g.forward(timestep.float(), timestep)
         if yg is not None:
             yg = torch.cat([yg, logits], -1)
         else:
