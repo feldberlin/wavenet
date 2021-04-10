@@ -47,8 +47,8 @@ def animate_stereo_sample_distributions(camera, axs, logits, n):
     N, K, C, W = logits.shape
 
     def channels(pos):
-        left = F.softmax(logits[n, :, 0, pos], dim=0).detach().numpy()
-        right = F.softmax(logits[n, :, 1, pos], dim=0).detach().numpy()
+        left = F.softmax(logits[n, :, 0, pos], dim=0).detach().cpu().numpy()
+        right = F.softmax(logits[n, :, 1, pos], dim=0).detach().cpu().numpy()
         return left, right
 
     for i, ax in enumerate(axs):
