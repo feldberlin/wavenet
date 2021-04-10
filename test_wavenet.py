@@ -63,7 +63,7 @@ def test_logit_jacobian_first_sample():
 
     def logits(x):
         "we are only interested in the time dimensions W. keeping n for loss"
-        logits, _ = m.forward(x, x)
+        logits, _ = m.forward(x)
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
@@ -84,7 +84,7 @@ def test_logit_jacobian_many_samples():
 
     def logits(x):
         "we are only interested in the time dimensions W. keeping n for loss"
-        logits, _ = m.forward(x, x)
+        logits, _ = m.forward(x)
         return logits.sum((1, 2))  # N, K, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
@@ -104,7 +104,7 @@ def test_loss_jacobian_many_samples():
     m = model.Wavenet(p)
 
     def loss(x):
-        logits, _ = m.forward(x, x)
+        logits, _ = m.forward(x)
         targets = utils.quantized_audio_to_class_idxs(x, p)
         losses = F.cross_entropy(logits, targets, reduction='none')
         return losses.sum(1)  # N, C, W -> N, W

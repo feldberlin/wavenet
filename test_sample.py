@@ -56,8 +56,8 @@ def test_one_logit_generator_vs_wavenet():
     x = torch.zeros((1, m.cfg.n_audio_chans, 1))
 
     # a single forward pass through both networks
-    ym, _ = m.forward(x, x)
-    yg, _ = g.forward(x, x)
+    ym, _ = m.forward(x)
+    yg, _ = g.forward(x)
     ym = F.softmax(ym.squeeze(), dim=0)
     yg = F.softmax(yg.squeeze(), dim=0)
 
@@ -71,7 +71,7 @@ def test_many_logits_generator_vs_wavenet():
     x = torch.zeros((1, m.cfg.n_audio_chans, n_samples))
 
     # a single forward pass through wavenet
-    ym, _ = m.forward(x, x)
+    ym, _ = m.forward(x)
 
     # iterate forward on generator
     yg = None

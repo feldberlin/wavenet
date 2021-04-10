@@ -47,7 +47,7 @@ class Wavenet(nn.Module):
         if run_path:
             utils.load_chkpt(self, run_path)
 
-    def forward(self, x, y):
+    def forward(self, x, y=None):
         """Audio is trained on (N, C, W) batches.
 
         There are C stereo input channels, W samples in each example. Logits
@@ -68,9 +68,13 @@ class Wavenet(nn.Module):
             x = F.relu(self.a1x1(x))
             x = self.b1x1(x)
             x = x.view(N, self.cfg.n_classes, C, W)
-            y = utils.quantized_audio_to_class_idxs(y, self.cfg)
 
-            return x, F.cross_entropy(x, y)
+            loss = None
+            if y is not None:
+                y = utils.quantized_audio_to_class_idxs(y, self.cfg)
+                loss = F.cross_entropy(x, y)
+
+            return x, loss
 
 
 class ResBlock(nn.Module):
