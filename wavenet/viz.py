@@ -70,7 +70,7 @@ class LearningAnimation():
             self.axs = [self.axs]
 
     def tick(self, model, trainset, testset):
-        logits, _ = model.forward(trainset[:128])
+        logits, _ = model.forward(trainset[:128][1])
         animate_stereo_sample_distributions(self.camera, self.axs, logits, 0)
 
     def render(self, filename):
