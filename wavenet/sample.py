@@ -21,15 +21,16 @@ def load(run_path):
 def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
     "Sample with the given utils.decode_* decoder function."
     g, device = Generator(m).to_device()
-    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1)).to(device)
+    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1), dtype=torch.long)
+    sample = sample.to(device)
 
-    # one sample at a time from and into the memoised network
+    # one sample only, at a time, from and into the memoised network
     with torch.set_grad_enabled(False):
         track = None
         for i in range(n_samples):
-            logits, _ = g.forward(sample.float(), sample)
+            logits, _ = g.forward(sample.float())
             idxs = decoder(logits)
-            sample = utils.quantized_audio_from_class_idxs(idxs, m.cfg)
+            sample = utils.audio_from_class_idxs(idxs, m.cfg.n_classes)
             if track is not None:
                 track = torch.cat([track, sample.detach().cpu()], -1)
             else:

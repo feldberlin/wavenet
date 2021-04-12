@@ -25,8 +25,8 @@ def test_track_dataset_stacked():
     x, y = datasets.to_tensor(d)
     assert x.shape == (16, 2, 16000)
     assert y.shape == (16, 2, 16000)
-    assert torch.min(y) >= -128.0
-    assert torch.max(y) <= 127.0
+    assert torch.min(y) >= 0.
+    assert torch.max(y) <= 256.
 
 
 def test_track():
@@ -64,8 +64,8 @@ def test_sines_dataset_stacked():
     d = datasets.Sines(4, 1, model.HParams())
     x, y = datasets.to_tensor(d)
     assert y.shape == (4, 2, 16000)
-    assert torch.min(y) >= -128.0
-    assert torch.max(y) <= 127.0
+    assert torch.min(y) >= 0.
+    assert torch.max(y) <= 256.
 
 
 def test_sines_dataloader():

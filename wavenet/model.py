@@ -57,7 +57,6 @@ class Wavenet(nn.Module):
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
             N, C, W = x.shape
-            x = utils.quantized_audio_to_unit_loudness(x, self.cfg)
             x = F.relu(self.input(x))
             skips = 0
             for block in self.layers:
@@ -71,7 +70,6 @@ class Wavenet(nn.Module):
 
             loss = None
             if y is not None:
-                y = utils.quantized_audio_to_class_idxs(y, self.cfg)
                 loss = F.cross_entropy(x, y)
 
             return x, loss

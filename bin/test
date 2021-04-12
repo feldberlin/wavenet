@@ -6,4 +6,4 @@
 export WANDB_MODE=disabled
 source .venv/bin/activate
 mypy *.py
-python -m pytest -m "not integration" "$@"
+python -m pytest -m "not integration" --disable-warnings "$@"

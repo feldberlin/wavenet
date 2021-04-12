@@ -9,36 +9,25 @@ import wandb
 
 # logits and normalisation
 
-def logits_to_class_idxs(logits, cfg):
-    "Convert logits to class indices via softmax argmax"
-    return torch.argmax(F.softmax(logits, dim=1), 1)
-
-
-def logits_to_audio(logits, cfg):
-    "Convert logits to audio"
-    idxs = logits_to_class_idxs(logits, cfg)
-    return quantized_audio_from_class_idxs(idxs, cfg)
-
-
-def quantized_audio_to_class_idxs(audio, cfg):
+def audio_to_class_idxs(audio, n_classes):
     "Convert audio [-128, 127] to class indices [0, 255]."
-    assert audio.min() >= -cfg.n_classes // 2, audio.min()
-    assert audio.max() <= cfg.n_classes // 2 - 1, audio.max()
-    return (audio + cfg.n_classes // 2).long()
+    assert audio.min() >= -n_classes // 2, audio.min()
+    assert audio.max() <= n_classes // 2 - 1, audio.max()
+    return (audio + n_classes // 2).long()
 
 
-def quantized_audio_from_class_idxs(idxs, cfg):
+def audio_from_class_idxs(idxs, n_classes):
     "Convert class indices [0, 255] to audio [-128, 127]."
     assert idxs.min() >= 0, idxs.min()
-    assert idxs.max() <= cfg.n_classes - 1, idxs.max()
-    return idxs - cfg.n_classes // 2
+    assert idxs.max() <= n_classes - 1, idxs.max()
+    return idxs - n_classes // 2
 
 
-def quantized_audio_to_unit_loudness(audio, cfg):
+def audio_to_unit_loudness(audio, n_classes):
     "Convert audio in [-128, 127] to [-1., 1.]."
-    assert audio.min() >= -cfg.n_classes // 2, audio.min()
-    assert audio.max() <= cfg.n_classes // 2 - 1, audio.max()
-    return (audio / (cfg.n_classes / 2.0))
+    assert audio.min() >= -n_classes // 2, audio.min()
+    assert audio.max() <= n_classes // 2 - 1, audio.max()
+    return (audio / (n_classes / 2.0))
 
 
 # generator decoders

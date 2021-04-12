@@ -1,4 +1,5 @@
-# Datasets. Each enumerated element is (x, y) with normalised x.
+# Datasets and transforms. Each enumerated element is (x, y) with normalised
+# x.
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -24,12 +25,25 @@ def tracks(filename: str, validation_pct: float, p):
     )
 
 
+class Transforms:
+    "Normalise x, convert y to class indices"
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    def __call__(self, x, y):
+        x = utils.audio_to_unit_loudness(x, self.cfg.n_classes)
+        y = utils.audio_to_class_idxs(y, self.cfg.n_classes)
+        return x, y
+
+
 class Track(Dataset):
     """Dataset constructed from a single track, held in memory.
     Loads μ compressed slices from a single track into N, C, W in [-1., 1.].
     """
 
     def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
+        self.transforms = Transforms(p)
         self.filename = filename
         y = audio.load_resampled(filename, p)
         _, n_samples = y.shape
@@ -46,7 +60,7 @@ class Track(Dataset):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        return self.X[idx], self.X[idx]
+        return self.transforms(self.X[idx], self.X[idx])
 
     def __repr__(self):
         return f'Track({self.filename})'
@@ -58,13 +72,14 @@ class StereoImpulse(Dataset):
     """
 
     def __init__(self, n, m, cfg, probs=None):
+        self.transforms = Transforms(cfg)
         probs = probs if probs else (0.45, 0.55)
         X = np.random.binomial(
             (cfg.n_classes, cfg.n_classes),
             probs,
             (n, cfg.n_audio_chans))
 
-        X = utils.quantized_audio_from_class_idxs(X, cfg)
+        X = utils.audio_from_class_idxs(X, cfg.n_classes)
         X_batched = np.reshape(X, (n, cfg.n_audio_chans, 1))
         X_batched = np.pad(X_batched, ((0, 0), (0, 0), (0, m - 1)))
         self.X = torch.from_numpy(X_batched).float()
@@ -73,7 +88,7 @@ class StereoImpulse(Dataset):
         return self.X.shape[0]
 
     def __getitem__(self, idx):
-        return self.X[idx], self.X[idx]
+        return self.transforms(self.X[idx], self.X[idx])
 
     def __repr__(self):
         return f'StereoImpulse()'
@@ -92,6 +107,9 @@ class Sines(Dataset):
         self.n_seconds = n_seconds
         self.n_examples = n_examples
         self.cfg = cfg
+
+        # normalisations
+        self.transforms = Transforms(cfg)
 
         # draw random parameters at init
         self.amp = amp if amp else torch.rand(n_examples)
@@ -116,7 +134,9 @@ class Sines(Dataset):
         if self.cfg.stereo: y = y.repeat(2, 1)
         y = audio.mu_compress(y.numpy(), self.cfg)
         y = torch.from_numpy(y).float()
-        return y, y
+
+        # normalise
+        return self.transforms(y, y)
 
     def __repr__(self):
         x = [('nseconds', self.n_seconds)]
@@ -179,4 +199,5 @@ class Tiny(Dataset):
 
     def __getitem__(self, idx):
         y = self.X[:, :, idx]
-        return (y - self.mean) / self.std, y
+        x = (y - self.mean) / self.std
+        return x, y

@@ -10,10 +10,10 @@ def test_generator_init():
 
 
 def test_generator_forward():
-    m = model.Wavenet(model.HParams())
+    m = model.Wavenet(model.HParams(n_classes=2**8))
     g = sample.Generator(m)
-    x = torch.rand(2, 2, 1) * 2 - 1
-    y = x.float()
+    y = torch.randint(0, 2**8, (2, 2, 1))
+    x = y.float()
     y, loss = g.forward(x, y)
     assert y.shape == (2, m.cfg.n_classes, m.cfg.n_audio_chans, 1)
 
@@ -68,10 +68,10 @@ def test_many_logits_generator_vs_wavenet():
     n_samples = 50
     m = model.Wavenet(model.HParams())
     g = sample.Generator(m)
-    x = torch.zeros((1, m.cfg.n_audio_chans, n_samples))
+    x = torch.zeros((1, m.cfg.n_audio_chans, n_samples), dtype=torch.long)
 
     # a single forward pass through wavenet
-    ym, _ = m.forward(x)
+    ym, _ = m.forward(x.float())
 
     # iterate forward on generator
     yg = None

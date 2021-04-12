@@ -21,16 +21,16 @@ def test_hparams_override():
 
 def test_wavenet_output_shape():
     m = model.Wavenet(model.HParams())
-    x = torch.rand(3, 2, 4) * 2 - 1
-    y = x.float()
-    x, _ = m.forward(x, y)
-    assert x.shape == (3, 256, 2, 4)
+    y = torch.randint(256, (3, 2, 4))
+    x = y.float()
+    y_hat, _ = m.forward(x, y)
+    assert y_hat.shape == (3, 256, 2, 4)
 
 
 def test_wavenet_mono_output_shape():
     m = model.Wavenet(model.HParams(n_audio_chans=1))
-    x = torch.rand(3, 1, 4) * 2 - 1
-    y = x.float()
+    y = torch.randint(256, (3, 1, 4))
+    x = y.float()
     x, _ = m.forward(x, y)
     assert x.shape == (3, 256, 1, 4)
 
@@ -105,7 +105,7 @@ def test_loss_jacobian_many_samples():
 
     def loss(x):
         logits, _ = m.forward(x)
-        targets = utils.quantized_audio_to_class_idxs(x, p)
+        targets = utils.audio_to_class_idxs(x, p.n_classes)
         losses = F.cross_entropy(logits, targets, reduction='none')
         return losses.sum(1)  # N, C, W -> N, W
 
