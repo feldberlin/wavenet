@@ -61,10 +61,12 @@ class Trainer:
         wandb.save('checkpoints.*')
 
         # lr schedule
-        schedule = utils.onecycle(optimizer, len(self.trainset), cfg)
+        schedule = None
         if cfg.finder:
             schedule = utils.lrfinder(optimizer, len(self.trainset), cfg)
             wandb.config.update({'dataset': 'lrfinder'})
+        elif cfg.onecycle:
+            schedule = utils.onecycle(optimizer, len(self.trainset), cfg)
 
         def run_epoch(split):
             is_train = split == 'train'
@@ -105,10 +107,14 @@ class Trainer:
                         )
                     scaler.step(optimizer)
                     scaler.update()
-                    schedule.step()
+
+                    if schedule:
+                        schedule.step()
+                        lr = schedule.get_last_lr()[0]
+                    else:
+                        lr = cfg.learning_rate
 
                     # logging
-                    lr = schedule.get_last_lr()[0]
                     msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
                     pbar.set_description(msg)
                     wandb.log({'learning rate': lr})
@@ -148,6 +154,9 @@ class HParams(utils.HParams):
 
     # the learning rate
     learning_rate = 3e-4
+
+    # apply a one cycle schedule
+    onecycle = True
 
     # adam betas
     betas = (0.9, 0.95)
