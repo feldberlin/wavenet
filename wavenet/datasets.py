@@ -172,6 +172,9 @@ class Tiny(Dataset):
     """
 
     def __init__(self, n, m):
+        """Produces a dataset of m timeseries, where each one is n long, and
+        values are drawn from 0 to 2n.
+        """
 
         # Create m timeseries of length n, with a random split in each one
         splits = torch.randint(0, n, (1, m))
