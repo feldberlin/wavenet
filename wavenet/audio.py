@@ -52,15 +52,15 @@ def mu_compress_batch(x: np.array, p):
     return np.apply_along_axis(fn, 0, x)
 
 
-def quantise(x: np.array, p):
+def quantise(x: torch.tensor, p):
     "Quantise signal from [-1, 1]"
     buckets = np.linspace(-1, 1, num=p.n_classes, endpoint=True)
     x = np.digitize(x, buckets, right=True)
-    return x - p.n_classes // 2
+    return torch.from_numpy(x - p.n_classes // 2)
 
 
 def dequantise(x: torch.IntTensor, p):
-    "Convert x in [-n, n-1] to [-1., 1.]."
+    "Convert x in [-n, n-1] to [-1., 1.] tensor."
     assert x.min() >= -p.n_classes // 2, x.min()
     assert x.max() <= p.n_classes // 2 - 1, x.max()
     return (x / (p.n_classes / 2.0))
