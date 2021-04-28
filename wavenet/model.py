@@ -139,6 +139,9 @@ class HParams(utils.HParams):
     # resample input dataset to sampling_rate before mu law compansion
     resample = True
 
+    # mu compress the input to n_classes
+    compress = True
+
     # length of a single track in samples
     sample_length = 16000
 
@@ -182,3 +185,6 @@ class HParams(utils.HParams):
 
     def receptive_field_size_ms(self):
         return 1000 * self.receptive_field_size() / self.sampling_rate
+
+    def sample_size_ms(self):
+        return 1000 * self.sample_length / self.sampling_rate

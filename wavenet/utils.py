@@ -9,25 +9,18 @@ import wandb
 
 # logits and normalisation
 
-def audio_to_class_idxs(audio, n_classes):
+def audio_to_class_idxs(audio: torch.IntTensor, n_classes):
     "Convert audio [-128, 127] to class indices [0, 255]."
     assert audio.min() >= -n_classes // 2, audio.min()
     assert audio.max() <= n_classes // 2 - 1, audio.max()
     return (audio + n_classes // 2).long()
 
 
-def audio_from_class_idxs(idxs, n_classes):
+def audio_from_class_idxs(idxs: torch.IntTensor, n_classes):
     "Convert class indices [0, 255] to audio [-128, 127]."
     assert idxs.min() >= 0, idxs.min()
     assert idxs.max() <= n_classes - 1, idxs.max()
     return idxs - n_classes // 2
-
-
-def audio_to_unit_loudness(audio, n_classes):
-    "Convert audio in [-128, 127] to [-1., 1.]."
-    assert audio.min() >= -n_classes // 2, audio.min()
-    assert audio.max() <= n_classes // 2 - 1, audio.max()
-    return (audio / (n_classes / 2.0))
 
 
 # generator decoders

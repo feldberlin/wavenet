@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 
 from wavenet import utils, model, train
 
@@ -34,7 +33,7 @@ def test_lrfinder():
     optimizer = torch.optim.SGD(m.parameters(), lr=1e-8)
     p = train.HParams(batch_size=1, max_epochs=1)
     schedule = utils.lrfinder(optimizer, 9, p)
-    assert np.isclose(schedule.gamma, 10.)
+    assert torch.isclose(torch.tensor(schedule.gamma), torch.tensor(10.))
 
 
 def test_onecycle():

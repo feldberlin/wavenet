@@ -13,7 +13,15 @@ def test_stereo_impulse_dataset():
 
 
 def test_track_dataset():
-    d = datasets.Track('fixtures/short.wav', model.HParams())
+    d = datasets.Track('fixtures/short.wav', model.HParams(compress=True))
+    x, y = d[0]
+    assert y.shape == (2, 16000)
+    assert len(d) == 16
+    assert repr(d) == 'Track(fixtures/short.wav)'
+
+
+def test_track_uncompressed():
+    d = datasets.Track('fixtures/short.wav', model.HParams(compress=False))
     x, y = d[0]
     assert y.shape == (2, 16000)
     assert len(d) == 16
@@ -43,25 +51,25 @@ def test_track():
 
 
 def test_sines_dataset():
-    d = datasets.Sines(4, 1, model.HParams())
+    d = datasets.Sines(4, model.HParams())
     x, y = d[0]
     assert y.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo
     assert len(d) == 4
-    assert repr(d) == 'Sines(nseconds: 1)'
+    assert repr(d) == 'Sines(nseconds: 1.0)'
 
 
 def test_sines_fixed_amp_dataset():
-    d = datasets.Sines(4, 1, model.HParams(), amp=0.5, hz=440)
+    d = datasets.Sines(4, model.HParams(), amp=0.5, hz=440)
     x, y = d[0]
     assert x.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo
     assert len(d) == 4
-    assert repr(d) == 'Sines(nseconds: 1, amp: 0.5, hz: 440)'
+    assert repr(d) == 'Sines(nseconds: 1.0, amp: 0.5, hz: 440)'
 
 
 def test_sines_dataset_stacked():
-    d = datasets.Sines(4, 1, model.HParams())
+    d = datasets.Sines(4, model.HParams())
     x, y = datasets.to_tensor(d)
     assert y.shape == (4, 2, 16000)
     assert torch.min(y) >= 0.
@@ -69,7 +77,7 @@ def test_sines_dataset_stacked():
 
 
 def test_sines_dataloader():
-    d = datasets.Sines(10, 1, model.HParams())
+    d = datasets.Sines(10, model.HParams())
     l = torch.utils.data.dataloader.DataLoader(d, batch_size=4)
     x, y = next(iter(l))
     assert x.shape == (4, 2, 16000)

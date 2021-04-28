@@ -3,6 +3,8 @@ import torch
 import numpy as np
 
 
+# loading, resampling, framing
+
 def load_raw(filename: str, mono: bool = False):
     "Load a track off disk into C, W in [-1., 1.]"
     y, sr = librosa.load(filename, sr=None, mono=mono)
@@ -32,14 +34,16 @@ def frame(y, p):
     return y
 
 
+# compression and quantisation
+
 def mu_compress(x: np.array, p):
-    "Mu expand from C, W in [-1., 1.] to C, W in [-128, 127]"
-    return librosa.mu_compress(x, mu=p.n_classes-1, quantize=True)
+    "Mu expand from C, W in [-1., 1.] to C, W in [-1., 1.] "
+    return librosa.mu_compress(x, mu=p.n_classes-1, quantize=False)
 
 
 def mu_expand(x: np.array, p):
-    "Mu expand from C, W in [-128, 127] to C, W in [-1., 1.]"
-    return librosa.mu_expand(x, mu=p.n_classes-1, quantize=True)
+    "Mu expand from C, W in [-1., 1.] to C, W in [-1., 1.]"
+    return librosa.mu_expand(x, mu=p.n_classes-1, quantize=False)
 
 
 def mu_compress_batch(x: np.array, p):
@@ -47,6 +51,22 @@ def mu_compress_batch(x: np.array, p):
     def fn(x): return mu_compress(x, p)
     return np.apply_along_axis(fn, 0, x)
 
+
+def quantise(x: np.array, p):
+    "Quantise signal from [-1, 1]"
+    buckets = np.linspace(-1, 1, num=p.n_classes, endpoint=True)
+    x = np.digitize(x, buckets, right=True)
+    return x - p.n_classes // 2
+
+
+def dequantise(x: torch.IntTensor, p):
+    "Convert x in [-n, n-1] to [-1., 1.]."
+    assert x.min() >= -p.n_classes // 2, x.min()
+    assert x.max() <= p.n_classes // 2 - 1, x.max()
+    return (x / (p.n_classes / 2.0))
+
+
+# librosa
 
 def to_librosa(y):
     "Librosa wants (W,) mono but we want (1, W) for consistency"

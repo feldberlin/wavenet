@@ -31,6 +31,24 @@ def test_load_resampled_stereo():
     assert np.max(y) <= 1.0
 
 
+def test_mu_compress():
+    p = model.HParams()
+    t1 = np.random.rand(2, 4) * 2 - 1
+    t1 = audio.mu_compress(t1, p)
+    assert t1.dtype == np.float64
+    assert t1.min() >= -1.0
+    assert t1.max() <= 1.0
+
+
+def test_mu_expand():
+    p = model.HParams()
+    t1 = np.random.rand(2, 4) * 2 - 1
+    t1 = audio.mu_expand(t1, p)
+    assert t1.dtype == np.float64
+    assert t1.min() >= -1.0
+    assert t1.max() <= 1.0
+
+
 def test_compansion_round_trip():
     p = model.HParams()
 
@@ -44,3 +62,17 @@ def test_compansion_round_trip():
     t2 = audio.mu_expand(t2, p)
 
     assert np.allclose(t1, t2)
+
+
+def test_quantise():
+    p = model.HParams(n_classes=8)
+    xs = np.arange(-1, 1, 1/16)
+    got = audio.quantise(xs, p)
+    valid_max = p.n_classes // 2 - 1
+    valid_min = p.n_classes // -2
+    assert got.max() == valid_max
+    assert got.min() == valid_min
+    assert set(np.unique(got)) == set(range(valid_min, valid_max+1))
+    for i in range(len(got)-1):
+        # monotonic
+        assert got[i+1] >= got[i]

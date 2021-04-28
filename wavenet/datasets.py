@@ -1,5 +1,8 @@
-# Datasets and transforms. Each enumerated element is (x, y) with normalised
-# x.
+# Datasets and transforms.
+#
+# Each element is a training frame in two versions x, y. Both represent the
+# same data series, where x is expected to be normalised and in the range [-1,
+# 1], while y is the integral class index of the value at that point.
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -32,7 +35,7 @@ class Transforms:
         self.cfg = cfg
 
     def __call__(self, x, y):
-        x = utils.audio_to_unit_loudness(x, self.cfg.n_classes)
+        x = audio.dequantise(x, self.cfg)
         y = utils.audio_to_class_idxs(y, self.cfg.n_classes)
         return x, y
 
@@ -45,22 +48,24 @@ class Track(Dataset):
     def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
         self.transforms = Transforms(p)
         self.filename = filename
-        y = audio.load_resampled(filename, p)
+        y = audio.load_resampled(filename, p)  # audio data in [-1, 1]
         _, n_samples = y.shape
         y = y[:, int(n_samples * start):int(n_samples * end)]  # start to end
-        y = audio.to_librosa(y)
-        ys = audio.frame(y, p)
-        ys = np.moveaxis(ys, -1, 0)
+        y = audio.to_librosa(y)  # different mono channels for librosa
+        ys = audio.frame(y, p)  # cut frames from single track
+        ys = np.moveaxis(ys, -1, 0)  # reshape back to N, C, W
         ys = torch.tensor(ys, dtype=torch.float32)
         ys = ys[1:, :, :]  # trim hoplength leading silence
-        ys = audio.mu_compress_batch(ys, p)
-        self.X = torch.from_numpy(ys).float()
+        if p.compress:
+            ys = audio.mu_compress_batch(ys, p)
+        ys = audio.quantise(ys, p)  # from [-1, 1] to [-n, n+1]
+        self.data = torch.from_numpy(ys).float()
 
     def __len__(self):
-        return self.X.shape[0]
+        return self.data.shape[0]
 
     def __getitem__(self, idx):
-        return self.transforms(self.X[idx], self.X[idx])
+        return self.transforms(self.data[idx], self.data[idx])
 
     def __repr__(self):
         return f'Track({self.filename})'
@@ -99,12 +104,12 @@ class Sines(Dataset):
     Random amplitude and hz, unless given.
     """
 
-    def __init__(self, n_examples, n_seconds, cfg,
+    def __init__(self, n_examples, cfg,
                  amp: float = None, hz: float = None, phase: float = None,
                  minhz = 400, maxhz = 20000):
 
         # config
-        self.n_seconds = n_seconds
+        self.n_seconds = cfg.sample_size_ms() / 1000
         self.n_examples = n_examples
         self.cfg = cfg
 
@@ -131,11 +136,16 @@ class Sines(Dataset):
         y = torch.sin((x - phase) * np.pi * 2 * hz) * amp
         y = y.unsqueeze(0)  # C, W
 
-        if self.cfg.stereo: y = y.repeat(2, 1)
-        y = audio.mu_compress(y.numpy(), self.cfg)
-        y = torch.from_numpy(y).float()
+        # copy to n audio channels
+        if self.cfg.n_audio_chans > 1:
+            y = y.repeat(self.cfg.n_audio_chans, 1)
 
-        # normalise
+        # mu compress
+        if self.cfg.compress:
+            y = audio.mu_compress(y.numpy(), self.cfg)
+            y = torch.from_numpy(y)
+
+        y = y.float()
         return self.transforms(y, y)
 
     def __repr__(self):
