@@ -21,7 +21,7 @@ class Trainer:
     """Train wavenet with mixed precision on a one cycle schedule.
     """
 
-    def __init__(self, model, trainset, testset, cfg, callback):
+    def __init__(self, model, trainset, testset, cfg, callback=None):
         self.model = model
         self.trainset = trainset
         self.testset = testset
