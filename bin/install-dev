@@ -14,4 +14,4 @@ jupyter labextension install jupyter-matplotlib
 jupyter nbextension enable --py widgetsnbextension
 
 # kernel
-python -m ipykernel install --user --name=.venv
+python -m ipykernel install --user --name=.venv-wavenet

@@ -2,9 +2,10 @@
 Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
-import torch.nn as nn
 from torch.nn import functional as F
+import torch
 import torch.cuda.amp as amp
+import torch.nn as nn
 
 from wavenet import utils
 
@@ -25,7 +26,7 @@ class Wavenet(nn.Module):
 
         # hide the present time step t in the input
         # go from stereo straight to the network channel depth
-        self.input = CausalShifted1d(
+        self.input = ShiftedCausal1d(
             cfg.n_audio_chans,
             cfg.n_chans,
             kernel_size=cfg.kernel_size
@@ -56,8 +57,8 @@ class Wavenet(nn.Module):
         """
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
-            N, C, W = x.shape
-            x = F.relu(self.input(x))
+            N, C, W = x.shape  # N, C=self.cfg.n_audio_chans, W
+            x = F.relu(self.input(x, verbose=self.cfg.verbose))  # N, C, W
             skips = 0
             for block in self.layers:
                 x, s = block(x)
@@ -65,8 +66,8 @@ class Wavenet(nn.Module):
 
             x = F.relu(skips)
             x = F.relu(self.a1x1(x))
-            x = self.b1x1(x)
-            x = x.view(N, self.cfg.n_classes, C, W)
+            x = self.b1x1(x)  # N, C, W in and out
+            x = x.view(N, self.cfg.n_classes, self.cfg.n_audio_chans, W)
 
             loss = None
             if y is not None:
@@ -106,26 +107,36 @@ class ResBlock(nn.Module):
 class Causal1d(nn.Conv1d):
     """Causal 1d convolution.
 
-    Left pads s.t. output timesteps depend only on past or present inputs.
+    Left pads s.t. output timesteps depend only on past or present inputs. For
+    example, with a kernel size 2 and a dilation of 1, we need to left pad by
+    1, so that the first cross product at timestep t=0 uses only the left
+    padded zero, and timestep t=0 as input. These units are used everywhere
+    except for the first layer, and ensure that information flows directly
+    upward from timestep t. The reason we don't left-pad by the full kernel
+    size is that with many layers, output timestep t would no longer depend on
+    the input at t-1. See `ShiftedCausal1d` for details on masking t.
     """
 
-    def forward(self, x):
+    def forward(self, x, verbose=False):
         kernel = self.kernel_size[0]
         dilation = self.dilation[0]
-        return super().forward(F.pad(x, ((kernel - 1) * dilation, 0)))
+        x = F.pad(x, ((kernel - 1) * dilation, 0))
+        if verbose: print('shifted padded input', x)
+        return super().forward(x)
 
 
-class CausalShifted1d(Causal1d):
+class ShiftedCausal1d(Causal1d):
     """Shift input one to the right then do a Causal1d convolution.
 
     Prepends 0 and removes the last element. This convolution can be used
-    as an initial layer in a causal stack in order to remove a dependency
-    on the current time step t, so we can model P(x_t|x_(t-1),x_(t-2)..., x_t0)
+    as an initial layer in a causal stack in order to remove a dependency on
+    the current time step t, so we can model P(x_t|x_(t-1),x_(t-2)..., x_t0)
     instead of accidentally modelling P(x_t|x_t, x_(t-1)..., x_t0).
     """
 
-    def forward(self, x):
-        return super().forward(F.pad(x, (1, -1)))
+    def forward(self, x, verbose=False):
+        x = F.pad(x, (1, -1))
+        return super().forward(x, verbose=verbose)
 
 
 class HParams(utils.HParams):
@@ -173,6 +184,12 @@ class HParams(utils.HParams):
     # run the generator on gpus
     sample_from_gpu = False
 
+    # used when setting the seed. this is an experimental torch feature
+    use_deterministic_algorithms = False
+
+    # logging
+    verbose = False
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -188,3 +205,13 @@ class HParams(utils.HParams):
 
     def sample_size_ms(self):
         return 1000 * self.sample_length / self.sampling_rate
+
+    def device(self):
+        if torch.cuda.is_available():
+            return torch.cuda.current_device()
+        return 'cpu'
+
+    def sampling_device(self):
+        if self.sample_from_gpu and torch.cuda.is_available():
+            return torch.cuda.current_device()
+        return 'cpu'

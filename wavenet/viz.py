@@ -2,14 +2,14 @@
 Notebook tools
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-import celluloid
+import numpy as np  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+import celluloid  # type: ignore
 import torch
 from torch.nn import functional as F
 
 
-def plot_track(batch: torch.tensor, i: int = None,
+def plot_track(batch, i: int = None,
                offset: int = 0, n_samples: int = 350, title: str = 'track',
                style: str = '-'):
 
@@ -27,7 +27,7 @@ def plot_track(batch: torch.tensor, i: int = None,
     return i
 
 
-def plot_stereo_sample_distributions(logits: torch.tensor, n: int):
+def plot_stereo_sample_distributions(logits, n: int):
     N, K, C, W = logits.shape
 
     def channels(pos):

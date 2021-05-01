@@ -1,99 +1,134 @@
-"""
-Fast wavenet generation algorithm https://arxiv.org/abs/1611.09482
+"""Sample Generation.
+
+Fast sampling as per https://arxiv.org/abs/1611.09482
 """
 
+import typing
 from collections import deque
 
+from torch.nn import functional as F
 import torch
-import torch.nn as nn
 import torch.cuda as cuda
+import torch.cuda.amp as amp
+import torch.nn as nn
 
-from wavenet import utils, model, train, audio
-
-
-def load(run_path):
-    "Load config and model from wandb"
-    p, ptrain = utils.load_wandb_cfg(run_path)
-    p, ptrain = model.HParams(**p), train.HParams(**ptrain)
-    return utils.load_chkpt(model.Wavenet(p), run_path), ptrain
+from wavenet import utils, model, train, datasets
 
 
-def sample(m: model.Wavenet, decoder, n_samples: int, batch_size: int = 1):
-    "Sample with the given utils.decode_* decoder function."
-    g, device = Generator(m).to_device()
-    sample = torch.zeros((batch_size, m.cfg.n_audio_chans, 1), dtype=torch.long)
-    sample = sample.to(device)
-
-    # one sample only, at a time, from and into the memoised network
+def fast(m: model.Wavenet, tf: datasets.Transforms, decoder,
+           n_samples: int, batch_size: int = 1):
+    "Process one sample at a time with a utils.decode_* decoder function."
+    device = m.cfg.sampling_device()
+    g = Generator(m).to(device)
+    x = torch.zeros((batch_size, m.cfg.n_audio_chans, 1), dtype=torch.float)
+    x = x.to(device)
     with torch.set_grad_enabled(False):
-        track = None
-        for i in range(n_samples):
-            logits, _ = g.forward(sample.float())
-            idxs = decoder(logits)
-            sample = utils.audio_from_class_idxs(idxs, m.cfg.n_classes)
-            if track is not None:
-                track = torch.cat([track, sample.detach().cpu()], -1)
-            else:
-                track = sample.detach().cpu()
+        with amp.autocast(enabled=m.cfg.mixed_precision):
+            track = []
+            probabilities = []
+            for i in range(n_samples):
+                logits, _ = g.forward(x)
+                probabilities.append(logits)
+                y = decoder(logits)
+                x = tf.normalise(y)
+                track.append(y.detach().cpu())
 
-        dequantised = audio.dequantise(track.numpy(), m.cfg)
-        expanded = audio.mu_expand(dequantised, m.cfg)
-        return track, expanded
+            return (
+                torch.cat(track, -1),
+                torch.cat(probabilities, -1),
+                g
+            )
+
+
+def simple(m: model.Wavenet, tf: datasets.NormaliseTransforms, decoder,
+           n_samples: int, batch_size: int = 1):
+    "Naïve sampling loop"
+    device = m.cfg.sampling_device()
+    m = m.to(device)
+    y = torch.zeros((batch_size, m.cfg.n_audio_chans, n_samples), dtype=torch.float)
+    y += tf.mean  # this will be normalised back to zero
+    y = y.to(device)
+    with torch.set_grad_enabled(False):
+        with amp.autocast(enabled=m.cfg.mixed_precision):
+            probabilities = []
+            for t in range(n_samples):
+                x = tf.normalise(y)
+                logits, _ = m(x)
+                logits = logits[:, :, :, t].unsqueeze(-1)  # N, K, C, 1
+                probabilities.append(logits)
+                yt = decoder(logits)
+                y[:, 0, t] = yt.squeeze()
+
+            return y, torch.cat(probabilities, -1)
 
 
 class Generator(model.Wavenet):
-    """Memoize the wavenet for fast sampling.
-
-    Observe that a dilated convolution is the same as a non dilated
-    convolution if the input is subsampled with the given stride. For any
-    given convolution, we process the last known timestep, plus kernel_size
-    - 1 older ones. These older inputs are fetched from a rotating queue,
-    which is sized such that subsampling with the given kernel_size and
-    dilation will be possible. Note also that cnns are not fixed size, so we
-    can pass (N, C, 1) batches in without problems.
-
-    This implementation currently left pops off the queue only, which means
-    that only kernel size 2 is currently supported.
+    """Memoize the wavenet for fast sampling using dynamic programming.
 
     Each forward pass expects one (N, C, W=1) time step only, and will emit
-    the next (N, K, C, W=1) logits, where K is n_classes.
+    the next (N, K, C, W=1) logits, where K is n_classes. Intermediate
+    computations are remembered such that they do not have to be recomputed.
+    The resulting output is the same as what would be obtained with a naive
+    sampling loop.
+
+    See the paper referenced at the top of the file for more details.
     """
 
     def __init__(self, m: model.Wavenet):
-        assert m.cfg.kernel_size == 2
+        assert m.cfg.kernel_size == 2, m.cfg.kernel_size
         super().__init__(m.cfg)
         self.cfg = m.cfg
-        self.input = Memo(to_conv1d(m.input), m.cfg.kernel_size - 1)
+        self.input = Memo(m.input, logme=True)
         self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)
         self.b1x1 = to_conv1d(m.b1x1)
-
-    def to_device(self):
-        if self.cfg.sample_from_gpu and cuda.is_available():
-            device = cuda.current_device()
-            return self.to(device), device
-        return self, 'cpu'
 
 
 class ResBlock(model.ResBlock):
 
     def __init__(self, r: model.ResBlock):
         super(model.ResBlock, self).__init__()
-        self.conv = Memo(to_conv1d(r.conv), r.conv.dilation[0])
+        self.conv = Memo(r.conv)
         self.end1x1 = to_conv1d(r.end1x1)
         self.skip1x1 = to_conv1d(r.skip1x1)
 
 
 class Memo(nn.Module):
+    """Memoize a dilated model.Causal1d.
 
-    def __init__(self, c: nn.Conv1d, depth=1):
+    Can memoize a single past value, an arbitrary number of steps back. This
+    is enough to implement a conv1d with a kernel size of two. The queue depth
+    reflects the dilation factor of the memoized convolution.
+
+    Instead of a single convolutional forward pass on an input x, e.g.
+    (N, C, W=10), we split x into e.g. 10 x (N, C, W=1) inputs and call these
+    one after the other. When we stack the outputs along W, we obtain the same
+    result as with an ordinary forward pass with left padding of
+    `queue_depth`, which is (kernel_size - 1) * dilation. Note that we can
+    implement this with a non-dilated convolution here.
+
+    Memo is implemented with a circular queue. To support the initial
+    ShiftedCausal1d, we also have to delay inputs by one timestep. This is
+    implemented with a second queue.
+
+    Arguments
+    ---------
+    c: nnConv1d the convolution being memoized
+    """
+
+    def __init__(self, c: model.Causal1d, logme=False):
         super().__init__()
-        self.c = c
-        self.queue = deque([None] * depth)
+        assert c.kernel_size[0] == 2, c.kernel_size
+        self.logme = logme
+        self.c = to_conv1d(c)
+        self.queue_depth = (c.kernel_size[0] - 1) * c.dilation[0]
+        self.queue = deque([None] * self.queue_depth)
 
-    def forward(self, x):
-        assert x.shape[-1] == 1  # one timestep
-        return self.c.forward(self.pushpop(x))
+    def forward(self, x, verbose=None):
+        assert x.shape[-1] == 1, x.shape  # one timestep
+        x = self.pushpop(x)
+        # if self.logme: print('shifted padded input', x)
+        return self.c.forward(x)
 
     def pushpop(self, x):
         self.queue.append(x)
@@ -106,6 +141,13 @@ def to_conv1d(x: nn.Conv1d):
     "Convert to non causal conv1d without padding or dilation"
     y = nn.Conv1d(x.in_channels, x.out_channels, x.kernel_size[0])
     with torch.no_grad():
-        y.weight.copy_(x.weight)
-        y.bias.copy_(x.bias)
+        y.weight.copy_(x.weight)  # type: ignore
+        y.bias.copy_(x.bias)  # type: ignore
         return y
+
+
+def load(run_path: str):
+    "Load config and model from wandb"
+    p, ptrain = utils.load_wandb_cfg(run_path)
+    p, ptrain = model.HParams(**p), train.HParams(**ptrain)
+    return utils.load_chkpt(model.Wavenet(p), run_path), ptrain

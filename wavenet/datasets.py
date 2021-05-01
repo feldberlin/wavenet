@@ -8,11 +8,78 @@
 # the dataset emits quantised integral x, y tensors.
 
 
-import numpy as np
-from torch.utils.data import Dataset
+import abc
+import collections
+import typing
+
+import numpy as np  # type: ignore
 import torch
 
 from wavenet import utils, audio
+
+
+# data transformations
+
+class Transforms:
+
+    @abc.abstractmethod
+    def __call__(self, data):
+        "Convert from data to x, y for training"
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def normalise(self, y):
+        "Convert from y back to x for autoregressive generation"
+        raise NotImplementedError
+
+
+class AudioUnitTransforms(Transforms):
+    """Normalise x by dequantising data, convert y to class indices by shift.
+    Transforms assume quantised data input.
+    """
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.mean = 0.
+
+    def __call__(self, data):
+        x = audio.dequantise(data, self.cfg)
+        y = utils.audio_to_class_idxs(data, self.cfg.n_classes)
+        return x, y
+
+    def normalise(self, y):
+        x = utils.audio_from_class_idxs(y, self.cfg.n_classes)
+        x = audio.dequantise(x, self.cfg)
+        return x
+
+
+class NormaliseTransforms(Transforms):
+    """Normalise x, convert y to class indices.
+    Transforms assume quantised x, y inputs.
+    """
+
+    def __init__(self, mean, std):
+        self.mean = mean
+        self.std = std
+        self.eps = 1e-15
+
+    def __call__(self, data):
+        y = data
+        x = (y - self.mean) / (self.std + self.eps)
+        return x, y
+
+    def normalise(self, y):
+        return (y - self.mean) / (self.std + self.eps)
+
+
+# datasets
+
+class Dataset(torch.utils.data.Dataset, collections.abc.Sequence):
+    "Map style datasets, but also iterable."
+
+    @property
+    @abc.abstractmethod
+    def transforms(self) -> Transforms: raise NotImplementedError
 
 
 def to_tensor(d: Dataset, n_items = None):
@@ -32,27 +99,13 @@ def tracks(filename: str, validation_pct: float, p):
     )
 
 
-class Transforms:
-    """Normalise x, convert y to class indices.
-    Transforms assume quantised x, y inputs.
-    """
-
-    def __init__(self, cfg):
-        self.cfg = cfg
-
-    def __call__(self, data: torch.IntTensor):
-        x = audio.dequantise(data, self.cfg)
-        y = utils.audio_to_class_idxs(data, self.cfg.n_classes)
-        return x, y
-
-
 class Track(Dataset):
     """Dataset constructed from a single track, held in memory.
     Loads μ compressed slices from a single track into N, C, W in [-1., 1.].
     """
 
     def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
-        self.transforms = Transforms(p)
+        self.tf = AudioUnitTransforms(p)
         self.filename = filename
         y = audio.load_resampled(filename, p)  # audio data in [-1, 1]
         _, n_samples = y.shape
@@ -66,11 +119,15 @@ class Track(Dataset):
             ys = audio.mu_compress_batch(ys, p)
         self.data = audio.quantise(ys, p)  # from [-1, 1] to [-n, n+1]
 
+    @property
+    def transforms(self):
+        return self.tf
+
     def __len__(self):
         return self.data.shape[0]
 
     def __getitem__(self, idx):
-        return self.transforms(self.data[idx])
+        return self.tf(self.data[idx])
 
     def __repr__(self):
         return f'Track({self.filename})'
@@ -82,7 +139,7 @@ class StereoImpulse(Dataset):
     """
 
     def __init__(self, n, m, cfg, probs=None):
-        self.transforms = Transforms(cfg)
+        self.tf = AudioUnitTransforms(cfg)
         probs = probs if probs else (0.45, 0.55)
         data = np.random.binomial(
             (cfg.n_classes, cfg.n_classes),
@@ -94,11 +151,15 @@ class StereoImpulse(Dataset):
         data_batched = np.pad(data_batched, ((0, 0), (0, 0), (0, m - 1)))
         self.data = torch.from_numpy(data_batched)
 
+    @property
+    def transforms(self):
+        return self.tf
+
     def __len__(self):
         return self.data.shape[0]
 
     def __getitem__(self, idx):
-        return self.transforms(self.data[idx])
+        return self.tf(self.data[idx])
 
     def __repr__(self):
         return f'StereoImpulse()'
@@ -119,12 +180,16 @@ class Sines(Dataset):
         self.cfg = cfg
 
         # normalisations
-        self.transforms = Transforms(cfg)
+        self.tf = AudioUnitTransforms(cfg)
 
         # draw random parameters at init
         self.amp = amp if amp else torch.rand(n_examples)
         self.hz = hz if hz else torch.rand(n_examples) * maxhz + minhz
         self.phase = phase if phase else torch.rand(n_examples) * np.pi * 2 / self.hz
+
+    @property
+    def transforms(self):
+        return self.tf
 
     def __len__(self):
         return self.n_examples
@@ -150,7 +215,7 @@ class Sines(Dataset):
             y = audio.mu_compress(y.numpy(), self.cfg)
             y = torch.from_numpy(y)
 
-        return self.transforms(audio.quantise(y, self.cfg))
+        return self.tf(audio.quantise(y, self.cfg))
 
     def __repr__(self):
         x = [('nseconds', self.n_seconds)]
@@ -208,13 +273,16 @@ class Tiny(Dataset):
         self.data = series.unsqueeze(0)
 
         # dataset stats
-        self.mean = torch.mean(self.data.float())
-        self.std = torch.std(self.data.float())
+        mean = torch.mean(self.data.float())
+        std = torch.std(self.data.float())
+        self.tf = NormaliseTransforms(mean, std)
+
+    @property
+    def transforms(self):
+        return self.tf
 
     def __len__(self):
         return self.data.shape[2]
 
     def __getitem__(self, idx):
-        y = self.data[:, :, idx]
-        x = (y - self.mean) / self.std
-        return x, y
+        return self.tf(self.data[:, :, idx])

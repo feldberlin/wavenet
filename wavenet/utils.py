@@ -1,9 +1,11 @@
 import inspect
 import yaml
+import random
 
 import torch
 from torch.nn import functional as F
 from torch.optim import lr_scheduler
+import numpy as np  # type: ignore
 import wandb
 
 
@@ -16,19 +18,19 @@ def audio_to_class_idxs(audio: torch.IntTensor, n_classes):
     return (audio + n_classes // 2).long()
 
 
-def audio_from_class_idxs(idxs: torch.IntTensor, n_classes):
+def audio_from_class_idxs(idxs, n_classes):
     "Convert class indices [0, 255] to audio [-128, 127]."
     assert idxs.min() >= 0, idxs.min()
     assert idxs.max() <= n_classes - 1, idxs.max()
     return idxs - n_classes // 2
 
 
-# generator decoders
+# generator decoders, randomness
 
 def decode_random(logits):
     "Convert N, K, C, 1 logits into N, C, 1 samples by random sampling"
     N, K, C, W = logits.shape
-    assert W == 1
+    assert W == 1, W
     posterior = F.softmax(logits, dim=1)
     posterior = posterior.squeeze(-1).permute(0, 2, 1)
     d = torch.distributions.Categorical(posterior)
@@ -38,7 +40,7 @@ def decode_random(logits):
 def decode_argmax(logits):
     "Convert N, K, C, 1 logits into N, C, 1 samples by argmax"
     N, K, C, W = logits.shape
-    assert W == 1
+    assert W == 1, W
     return torch.argmax(F.softmax(logits, dim=1), dim=1)
 
 
@@ -49,7 +51,7 @@ def decode_nucleus(core_mass: float = 0.95):
     """
     def fn(logits):
         N, K, C, W = logits.shape
-        assert W == 1
+        assert W == 1, W
         sorted, idxs = torch.sort(logits, dim=1, descending=True)
         _, reverse_idxs = torch.sort(idxs, dim=1)
         csum = torch.cumsum(F.softmax(sorted, dim=1), dim=1)
@@ -58,6 +60,14 @@ def decode_nucleus(core_mass: float = 0.95):
         logits[torch.gather(remove, 1, reverse_idxs)] = -float('Inf')
         return decode_random(logits)
     return fn
+
+
+def seed(cfg):
+    "Set random seeds and use deterministic algorithms. "
+    torch.manual_seed(cfg.seed)
+    random.seed(cfg.seed)
+    np.random.seed(cfg.seed)
+    torch.use_deterministic_algorithms(cfg.use_deterministic_algorithms)
 
 
 # schedules
@@ -76,7 +86,6 @@ def onecycle(optimizer, n_examples, cfg):
 
 
 # lifecycle
-
 
 def load_chkpt(m, run_path):
     chkpt = wandb.restore('checkpoints.best.test', run_path=run_path)

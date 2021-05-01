@@ -6,8 +6,8 @@ from collections import defaultdict
 import math
 import os
 
-from tqdm import tqdm
-import numpy as np
+from tqdm import tqdm  # type: ignore
+import numpy as np  # type: ignore
 import wandb
 
 import torch
@@ -28,10 +28,8 @@ class Trainer:
         self.cfg = cfg
         self.model_cfg = model.cfg
         self.callback = callback
-        self.device = 'cpu'
-        if torch.cuda.is_available():
-            self.device = torch.cuda.current_device()
-            self.model = torch.nn.DataParallel(self.model).to(self.device)
+        self.device = self.model_cfg.device()
+        self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def checkpoint(self, name):
         base = wandb.run.dir if wandb.run.dir != '/' else '.'
