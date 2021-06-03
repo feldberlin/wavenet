@@ -58,7 +58,7 @@ class Wavenet(nn.Module):
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
             N, C, W = x.shape  # N, C=self.cfg.n_audio_chans, W
-            x = F.relu(self.input(x, verbose=self.cfg.verbose))  # N, C, W
+            x = F.relu(self.input(x))  # N, C, W
             skips = 0
             for block in self.layers:
                 x, s = block(x)
@@ -117,11 +117,10 @@ class Causal1d(nn.Conv1d):
     the input at t-1. See `ShiftedCausal1d` for details on masking t.
     """
 
-    def forward(self, x, verbose=False):
+    def forward(self, x):
         kernel = self.kernel_size[0]
         dilation = self.dilation[0]
         x = F.pad(x, ((kernel - 1) * dilation, 0))
-        if verbose: print('shifted padded input', x)
         return super().forward(x)
 
 
@@ -134,9 +133,9 @@ class ShiftedCausal1d(Causal1d):
     instead of accidentally modelling P(x_t|x_t, x_(t-1)..., x_t0).
     """
 
-    def forward(self, x, verbose=False):
+    def forward(self, x):
         x = F.pad(x, (1, -1))
-        return super().forward(x, verbose=verbose)
+        return super().forward(x)
 
 
 class HParams(utils.HParams):
@@ -182,13 +181,10 @@ class HParams(utils.HParams):
     seed = 5762
 
     # run the generator on gpus
-    sample_from_gpu = False
+    sample_from_gpu = True
 
     # used when setting the seed. this is an experimental torch feature
     use_deterministic_algorithms = False
-
-    # logging
-    verbose = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

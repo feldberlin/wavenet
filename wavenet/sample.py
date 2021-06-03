@@ -57,7 +57,7 @@ def simple(m: model.Wavenet, tf: datasets.NormaliseTransforms, decoder,
                 logits = logits[:, :, :, t].unsqueeze(-1)  # N, K, C, 1
                 probabilities.append(logits)
                 yt = decoder(logits)
-                y[:, 0, t] = yt.squeeze()
+                y[:, :, t] = yt.squeeze()
 
             return y, torch.cat(probabilities, -1)
 
@@ -78,7 +78,7 @@ class Generator(model.Wavenet):
         assert m.cfg.kernel_size == 2, m.cfg.kernel_size
         super().__init__(m.cfg)
         self.cfg = m.cfg
-        self.input = Memo(m.input, logme=True)
+        self.input = Memo(m.input)
         self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)
         self.b1x1 = to_conv1d(m.b1x1)
@@ -116,18 +116,16 @@ class Memo(nn.Module):
     c: nnConv1d the convolution being memoized
     """
 
-    def __init__(self, c: model.Causal1d, logme=False):
+    def __init__(self, c: model.Causal1d):
         super().__init__()
         assert c.kernel_size[0] == 2, c.kernel_size
-        self.logme = logme
         self.c = to_conv1d(c)
         self.queue_depth = (c.kernel_size[0] - 1) * c.dilation[0]
         self.queue = deque([None] * self.queue_depth)
 
-    def forward(self, x, verbose=None):
+    def forward(self, x):
         assert x.shape[-1] == 1, x.shape  # one timestep
         x = self.pushpop(x)
-        # if self.logme: print('shifted padded input', x)
         return self.c.forward(x)
 
     def pushpop(self, x):

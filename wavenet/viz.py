@@ -9,16 +9,16 @@ import torch
 from torch.nn import functional as F
 
 
-def plot_track(batch, i: int = None,
-               offset: int = 0, n_samples: int = 350, title: str = 'track',
-               style: str = '-'):
+def plot_random_track(batch, i: int = None,
+                      offset: int = 0, n_samples: int = 350,
+                      title: str = 'track', style: str = '-'):
 
-    N, C, W = batch.shape
-    i = i if i is not None else np.random.randint(N)
+    i = i if i is not None else np.random.randint(len(batch))
+    *_, track = batch[i]
 
     plt.figure(figsize=(15, 7))
-    for channel in range(C):
-        data = batch[i, channel, i:i+n_samples]
+    for channel in range(len(track)):
+        data = track[channel, offset:offset+n_samples]
         legend = f'{title}: track {i}, offset {offset}, n_samples {n_samples}'
         plt.title(legend)
         plt.plot(data, style)
