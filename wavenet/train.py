@@ -138,6 +138,10 @@ class Trainer:
                     best['test'] = test_loss
                     self.checkpoint('best.test')
 
+        # hurra
+        wandb.save('checkpoints.*')
+        wandb.finish()
+
 
 class HParams(utils.HParams):
 
