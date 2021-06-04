@@ -20,14 +20,15 @@ def activations(m: nn.Module, memo: dict):
     print(activations)
     """
 
-    def hook_fn(module, input, output): memo[module] = output
+    def hook_fn(module, input, output):
+        memo[module] = output
 
     def register(modules: typing.Dict[str, nn.Module]):
         for name, layer in modules.items():
             if isinstance(layer, nn.ModuleList):
                 register(layer._modules)
             else:
-                print('registered', name, layer)
+                print("registered", name, layer)
                 layer.register_forward_hook(hook_fn)
 
     register(m._modules)
@@ -41,5 +42,5 @@ def dot(m: model.Wavenet):
         y.mean(),
         params=dict(m.named_parameters()),
         show_attrs=True,
-        show_saved=True
+        show_saved=True,
     )

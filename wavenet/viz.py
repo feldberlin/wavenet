@@ -8,22 +8,32 @@ import celluloid  # type: ignore
 from torch.nn import functional as F
 
 
-def plot_track(track, offset: int = 0, n_samples: int = 350,
-               title: str = 'track', style: str = '-'):
+def plot_track(
+    track,
+    offset: int = 0,
+    n_samples: int = 350,
+    title: str = "track",
+    style: str = "-",
+):
 
     plt.figure(figsize=(15, 7))
     for channel in range(len(track)):
-        data = track[channel, offset:offset+n_samples]
-        msg = f'{title}: chan {channel}, offset {offset}, samples {n_samples}'
+        data = track[channel, offset : offset + n_samples]
+        msg = f"{title}: chan {channel}, offset {offset}, samples {n_samples}"
         plt.title(msg)
         plt.plot(data, style)
 
     plt.tight_layout()
 
 
-def plot_random_track(batch, i: int = None,
-                      offset: int = 0, n_samples: int = 350,
-                      title: str = 'track', style: str = '-'):
+def plot_random_track(
+    batch,
+    i: int = None,
+    offset: int = 0,
+    n_samples: int = 350,
+    title: str = "track",
+    style: str = "-",
+):
 
     i = i if i is not None else np.random.randint(len(batch))
     *_, track = batch[i]
@@ -66,8 +76,7 @@ def animate_stereo_sample_distributions(camera, axs, logits, n):
     camera.snap()
 
 
-class LearningAnimation():
-
+class LearningAnimation:
     def __init__(self, W):
         plt.ioff()
         fig, self.axs = plt.subplots(1, W, figsize=(W * 9, 8))
@@ -82,4 +91,4 @@ class LearningAnimation():
 
     def render(self, filename):
         animation = self.camera.animate()
-        animation.save(filename, writer='imagemagick')
+        animation.save(filename, writer="imagemagick")

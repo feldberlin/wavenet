@@ -39,18 +39,18 @@ def test_wavenet_modules_registered():
     m = model.Wavenet(model.HParams(n_layers=1, dilation_stacks=1))
     got = list(m.state_dict().keys())
     want = [
-        'input.weight',
-        'input.bias',
-        'layers.0.conv.weight',
-        'layers.0.conv.bias',
-        'layers.0.end1x1.weight',
-        'layers.0.end1x1.bias',
-        'layers.0.skip1x1.weight',
-        'layers.0.skip1x1.bias',
-        'a1x1.weight',
-        'a1x1.bias',
-        'b1x1.weight',
-        'b1x1.bias'
+        "input.weight",
+        "input.bias",
+        "layers.0.conv.weight",
+        "layers.0.conv.bias",
+        "layers.0.end1x1.weight",
+        "layers.0.end1x1.bias",
+        "layers.0.skip1x1.weight",
+        "layers.0.skip1x1.bias",
+        "a1x1.weight",
+        "a1x1.bias",
+        "b1x1.weight",
+        "b1x1.bias",
     ]
 
     assert got == want
@@ -58,7 +58,7 @@ def test_wavenet_modules_registered():
 
 def test_logit_jacobian_first_sample():
     p = model.HParams()
-    X = datasets.StereoImpulse(1, 1,  p)
+    X = datasets.StereoImpulse(1, 1, p)
     m = model.Wavenet(p)
 
     def logits(x):
@@ -79,7 +79,7 @@ def test_logit_jacobian_first_sample():
 
 def test_logit_jacobian_many_samples():
     p = model.HParams()
-    X = datasets.StereoImpulse(1, 8,  p)  # 8 samples
+    X = datasets.StereoImpulse(1, 8, p)  # 8 samples
     m = model.Wavenet(p)
 
     def logits(x):
@@ -100,13 +100,13 @@ def test_logit_jacobian_many_samples():
 
 def test_loss_jacobian_many_samples():
     p = model.HParams()
-    X = datasets.StereoImpulse(1, 8,  p)  # 8 samples
+    X = datasets.StereoImpulse(1, 8, p)  # 8 samples
     m = model.Wavenet(p)
 
     def loss(x):
         logits, _ = m.forward(x)
         targets = utils.audio_to_class_idxs(x, p.n_classes)
-        losses = F.cross_entropy(logits, targets, reduction='none')
+        losses = F.cross_entropy(logits, targets, reduction="none")
         return losses.sum(1)  # N, C, W -> N, W
 
     # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
@@ -127,7 +127,7 @@ def test_loss_stable_across_batch_sizes():
         losses = []
         for i in range(100):
             p = model.HParams()
-            x, y = datasets.to_tensor(datasets.StereoImpulse(k, 8,  p))
+            x, y = datasets.to_tensor(datasets.StereoImpulse(k, 8, p))
             m = model.Wavenet(p)
             _, loss = m.forward(x, y)
             losses.append(loss.detach().numpy())

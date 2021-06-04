@@ -19,8 +19,8 @@ from wavenet import utils, audio
 
 # data transformations
 
-class Transforms:
 
+class Transforms:
     @abc.abstractmethod
     def __call__(self, data):
         "Convert from data to x, y for training"
@@ -39,7 +39,7 @@ class AudioUnitTransforms(Transforms):
 
     def __init__(self, cfg):
         self.cfg = cfg
-        self.mean = 0.
+        self.mean = 0.0
 
     def __call__(self, data):
         x = audio.dequantise(data, self.cfg)
@@ -73,12 +73,14 @@ class NormaliseTransforms(Transforms):
 
 # datasets
 
+
 class Dataset(torch.utils.data.Dataset, collections.abc.Sequence):
     "Map style datasets, but also iterable."
 
     @property
     @abc.abstractmethod
-    def transforms(self) -> Transforms: raise NotImplementedError
+    def transforms(self) -> Transforms:
+        raise NotImplementedError
 
 
 def to_tensor(d: Dataset, n_items=None):
@@ -86,15 +88,15 @@ def to_tensor(d: Dataset, n_items=None):
     n_items = n_items if n_items else len(d)
     return (
         torch.stack([d[i][0] for i in range(n_items)]),
-        torch.stack([d[i][1] for i in range(n_items)])
+        torch.stack([d[i][1] for i in range(n_items)]),
     )
 
 
 def tracks(filename: str, validation_pct: float, p):
     "Train - validation split on a single track"
     return (
-        Track(filename, p, 0., 1-validation_pct),
-        Track(filename, p, 1-validation_pct, 1.)
+        Track(filename, p, 0.0, 1 - validation_pct),
+        Track(filename, p, 1 - validation_pct, 1.0),
     )
 
 
@@ -108,7 +110,7 @@ class Track(Dataset):
         self.filename = filename
         y = audio.load_resampled(filename, p)  # audio data in [-1, 1]
         _, n_samples = y.shape
-        y = y[:, int(n_samples * start):int(n_samples * end)]  # start to end
+        y = y[:, int(n_samples * start) : int(n_samples * end)]  # start to end
         y = audio.to_librosa(y)  # different mono channels for librosa
         ys = audio.frame(y, p)  # cut frames from single track
         ys = np.moveaxis(ys, -1, 0)  # reshape back to N, C, W
@@ -129,7 +131,7 @@ class Track(Dataset):
         return self.tf(self.data[idx])
 
     def __repr__(self):
-        return f'Track({self.filename})'
+        return f"Track({self.filename})"
 
 
 class StereoImpulse(Dataset):
@@ -141,9 +143,8 @@ class StereoImpulse(Dataset):
         self.tf = AudioUnitTransforms(cfg)
         probs = probs if probs else (0.45, 0.55)
         data = np.random.binomial(
-            (cfg.n_classes, cfg.n_classes),
-            probs,
-            (n, cfg.n_audio_chans))
+            (cfg.n_classes, cfg.n_classes), probs, (n, cfg.n_audio_chans)
+        )
 
         data = utils.audio_from_class_idxs(data, cfg.n_classes)
         data_batched = np.reshape(data, (n, cfg.n_audio_chans, 1))
@@ -161,7 +162,7 @@ class StereoImpulse(Dataset):
         return self.tf(self.data[idx])
 
     def __repr__(self):
-        return 'StereoImpulse()'
+        return "StereoImpulse()"
 
 
 class Sines(Dataset):
@@ -169,9 +170,16 @@ class Sines(Dataset):
     Random amplitude and hz, unless given.
     """
 
-    def __init__(self, n_examples, cfg,
-                 amp: float = None, hz: float = None, phase: float = None,
-                 minhz=400, maxhz=20000):
+    def __init__(
+        self,
+        n_examples,
+        cfg,
+        amp: float = None,
+        hz: float = None,
+        phase: float = None,
+        minhz=400,
+        maxhz=20000,
+    ):
 
         # config
         self.n_seconds = cfg.sample_size_ms() / 1000
@@ -224,15 +232,15 @@ class Sines(Dataset):
         return self.tf(audio.quantise(y, self.cfg))
 
     def __repr__(self):
-        x = [('nseconds', self.n_seconds)]
+        x = [("nseconds", self.n_seconds)]
         if np.isscalar(self.amp):
-            x.append(('amp', self.amp))
+            x.append(("amp", self.amp))
         if np.isscalar(self.hz):
-            x.append(('hz', self.hz))
+            x.append(("hz", self.hz))
         if np.isscalar(self.phase):
-            x.append(('phase', self.phase))
-        x = ', '.join([f'{k}: {v}' for k, v in x])
-        return f'Sines({ x })'
+            x.append(("phase", self.phase))
+        x = ", ".join([f"{k}: {v}" for k, v in x])
+        return f"Sines({ x })"
 
 
 class Tiny(Dataset):
@@ -254,7 +262,7 @@ class Tiny(Dataset):
         # slopes between -1 and 1.  Then we'll broadcast along the x dimension
         # to obtain a n, 2m tensor, where each column is a tilted timeseries.
         x = torch.arange(n)
-        slopes = torch.rand(2*m) * 2 - 1
+        slopes = torch.rand(2 * m) * 2 - 1
         series = slopes.view(1, -1) * x.view(-1, 1)  # (1,2m) * (n,1) => (n,2m)
 
         # Now we'll add another dimension and fill it with pairs of

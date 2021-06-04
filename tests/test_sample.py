@@ -18,9 +18,9 @@ def test_to_conv_1d():
 
 
 def test_generator_forward_one_sample():
-    m = model.Wavenet(model.HParams(n_classes=2**8))
+    m = model.Wavenet(model.HParams(n_classes=2 ** 8))
     g = sample.Generator(m)
-    y = torch.randint(0, 2**8, (2, 2, 1))
+    y = torch.randint(0, 2 ** 8, (2, 2, 1))
     x = y.float()
     y, loss = g.forward(x, y)
     assert y.shape == (2, m.cfg.n_classes, m.cfg.n_audio_chans, 1)
@@ -40,7 +40,7 @@ def test_input_units_generator_vs_wavenet_one_sample():
         n_chans=32,
         dilation_stacks=1,
         n_layers=6,
-        compress=False
+        compress=False,
     )
 
     m = model.Wavenet(p)
@@ -80,7 +80,7 @@ def test_one_logit_generator_vs_wavenet():
         n_chans=32,
         dilation_stacks=1,
         n_layers=6,
-        compress=False
+        compress=False,
     )
 
     m = model.Wavenet(p)
@@ -136,7 +136,7 @@ def test_memoed_causal1d():
     res = []
     x = torch.rand((N, C, W))
     for i in range(W):
-        step = memoed(x[:, :, i:i+1])
+        step = memoed(x[:, :, i : i + 1])
         res.append(step)
 
     want = conv(x)
@@ -166,7 +166,7 @@ def test_memoed_causal1d_dilated():
     res = []
     x = torch.rand((N, C, W))
     for i in range(W):
-        res.append(memoed(x[:, :, i:i+1]))
+        res.append(memoed(x[:, :, i : i + 1]))
 
     # want the same padding behavior as Causal1d
     want = conv(x)
@@ -202,7 +202,7 @@ def test_memoed_shifted_causal1d():
     res = []
     x = F.pad(x, (1, -1))
     for i in range(W):
-        step = memoed(x[:, :, i:i+1])
+        step = memoed(x[:, :, i : i + 1])
         res.append(step)
 
     # want the same padding behavior as ShiftedCausal1d
@@ -222,7 +222,7 @@ def test_many_logits_fast_vs_simple():
         compress=False,
         sample_length=n_samples,
         seed=135,
-        verbose=True
+        verbose=True,
     )
 
     utils.seed(p)
@@ -236,22 +236,14 @@ def test_many_logits_fast_vs_simple():
     # simple
     utils.seed(p)
     _, simple_logits = sample.simple(
-        m,
-        ds.transforms,
-        decoder,
-        n_samples=n_samples,
-        batch_size=n_examples
+        m, ds.transforms, decoder, n_samples=n_samples, batch_size=n_examples
     )
     simple_logits = torch.softmax(simple_logits.squeeze(), dim=0)
 
     # fast
     utils.seed(p)
     _, fast_logits, g = sample.fast(
-        m,
-        ds.transforms,
-        decoder,
-        n_samples=n_samples,
-        batch_size=n_examples
+        m, ds.transforms, decoder, n_samples=n_samples, batch_size=n_examples
     )
     fast_logits = torch.softmax(fast_logits.squeeze(), dim=0)
 
@@ -273,7 +265,7 @@ def test_many_logits_generator_vs_wavenet():
         n_chans=32,
         dilation_stacks=1,
         n_layers=1,
-        compress=False
+        compress=False,
     )
 
     utils.seed(p)  # reset seeds and use deterministic mode
@@ -293,7 +285,7 @@ def test_many_logits_generator_vs_wavenet():
     yg = None
     x = F.pad(x, (1, -1))
     for i in range(n_samples):
-        timestep = x[:, :, i:(i+1)]
+        timestep = x[:, :, i : (i + 1)]
         logits, _ = g.forward(timestep)
         if yg is not None:
             yg = torch.cat([yg, logits], -1)

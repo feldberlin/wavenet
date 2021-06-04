@@ -12,8 +12,13 @@ import torch.nn as nn
 from wavenet import utils, model, train, datasets
 
 
-def fast(m: model.Wavenet, tf: datasets.Transforms, decoder, n_samples: int,
-         batch_size: int = 1):
+def fast(
+    m: model.Wavenet,
+    tf: datasets.Transforms,
+    decoder,
+    n_samples: int,
+    batch_size: int = 1,
+):
     "Process one sample at a time with a utils.decode_* decoder function."
     device = m.cfg.sampling_device()
     g = Generator(m).to(device)
@@ -31,15 +36,16 @@ def fast(m: model.Wavenet, tf: datasets.Transforms, decoder, n_samples: int,
                 x = tf.normalise(y)
                 track.append(y.detach().cpu())
 
-            return (
-                torch.cat(track, -1),
-                torch.cat(probabilities, -1),
-                g
-            )
+            return (torch.cat(track, -1), torch.cat(probabilities, -1), g)
 
 
-def simple(m: model.Wavenet, tf: datasets.NormaliseTransforms, decoder,
-           n_samples: int, batch_size: int = 1):
+def simple(
+    m: model.Wavenet,
+    tf: datasets.NormaliseTransforms,
+    decoder,
+    n_samples: int,
+    batch_size: int = 1,
+):
     "Naïve sampling loop"
     device = m.cfg.sampling_device()
     m = m.to(device)
@@ -84,7 +90,6 @@ class Generator(model.Wavenet):
 
 
 class ResBlock(model.ResBlock):
-
     def __init__(self, r: model.ResBlock):
         super(model.ResBlock, self).__init__()
         self.conv = Memo(r.conv)

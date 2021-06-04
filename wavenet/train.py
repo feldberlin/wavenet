@@ -18,8 +18,7 @@ from wavenet import utils
 
 
 class Trainer:
-    """Train wavenet with mixed precision on a one cycle schedule.
-    """
+    """Train wavenet with mixed precision on a one cycle schedule."""
 
     def __init__(self, model, trainset, testset, cfg, callback=None):
         self.model = model
@@ -32,20 +31,18 @@ class Trainer:
         self.model = torch.nn.DataParallel(self.model).to(self.device)
 
     def checkpoint(self, name):
-        base = wandb.run.dir if wandb.run.dir != '/' else '.'
+        base = wandb.run.dir if wandb.run.dir != "/" else "."
         filename = os.path.join(base, self.cfg.ckpt_path(name))
         torch.save(self._model().state_dict(), filename)
 
     def _model(self):
-        is_data_paralell = hasattr(self.model, 'module')
+        is_data_paralell = hasattr(self.model, "module")
         return self.model.module if is_data_paralell else self.model
 
     def train(self):
         model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
         optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=cfg.learning_rate,
-            betas=cfg.betas
+            model.parameters(), lr=cfg.learning_rate, betas=cfg.betas
         )
 
         # half precision gradient scaler
@@ -54,20 +51,20 @@ class Trainer:
         # telemetry
         wandb.init(project=cfg.project_name)
         wandb.config.update(utils.cfgdict(model_cfg, cfg))
-        wandb.config.update({'dataset': repr(self.trainset)})
-        wandb.watch(model, log='all')
-        wandb.save('checkpoints.*')
+        wandb.config.update({"dataset": repr(self.trainset)})
+        wandb.watch(model, log="all")
+        wandb.save("checkpoints.*")
 
         # lr schedule
         schedule = None
         if cfg.finder:
             schedule = utils.lrfinder(optimizer, len(self.trainset), cfg)
-            wandb.config.update({'dataset': 'lrfinder'})
+            wandb.config.update({"dataset": "lrfinder"})
         elif cfg.onecycle:
             schedule = utils.onecycle(optimizer, len(self.trainset), cfg)
 
         def run_epoch(split):
-            is_train = split == 'train'
+            is_train = split == "train"
             model.train(is_train)
             data = self.trainset if is_train else self.testset
             loader = DataLoader(
@@ -113,40 +110,40 @@ class Trainer:
                         lr = cfg.learning_rate
 
                     # logging
-                    msg = f'{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}'
+                    msg = f"{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
                     pbar.set_description(msg)
-                    wandb.log({'learning rate': lr})
-                    wandb.log({'train loss': loss})
+                    wandb.log({"learning rate": lr})
+                    wandb.log({"train loss": loss})
 
                 if self.callback and it % cfg.callback_fq == 0:
                     self.callback.tick(self.model, self.trainset, self.testset)
 
             return float(np.mean(losses))
 
-        best = defaultdict(lambda: float('inf'))
+        best = defaultdict(lambda: float("inf"))
         for epoch in range(cfg.max_epochs):
 
-            train_loss = run_epoch('train')
-            if train_loss < best['train']:
-                best['train'] = train_loss
-                self.checkpoint('best.train')
+            train_loss = run_epoch("train")
+            if train_loss < best["train"]:
+                best["train"] = train_loss
+                self.checkpoint("best.train")
 
             if self.testset is not None:
-                test_loss = run_epoch('test')
-                wandb.log({'test loss': test_loss})
-                if test_loss < best['test']:
-                    best['test'] = test_loss
-                    self.checkpoint('best.test')
+                test_loss = run_epoch("test")
+                wandb.log({"test loss": test_loss})
+                if test_loss < best["test"]:
+                    best["test"] = test_loss
+                    self.checkpoint("best.test")
 
         # hurra
-        wandb.save('checkpoints.*')
+        wandb.save("checkpoints.*")
         wandb.finish()
 
 
 class HParams(utils.HParams):
 
     # wandb project
-    project_name = 'feldberlin-wavenet'
+    project_name = "feldberlin-wavenet"
 
     # once over the whole dataset, how many times max
     max_epochs = 10
@@ -180,7 +177,7 @@ class HParams(utils.HParams):
             setattr(self, k, v)
 
     def ckpt_path(self, name):
-        return f'checkpoints.{name}'
+        return f"checkpoints.{name}"
 
     def n_steps(self, n_examples):
         batch_size = min(n_examples, self.batch_size)

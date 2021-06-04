@@ -5,41 +5,41 @@ from wavenet import datasets, model
 
 
 def test_stereo_impulse_dataset():
-    d = datasets.StereoImpulse(10, 4,  model.HParams())
+    d = datasets.StereoImpulse(10, 4, model.HParams())
     x, y = d[0]
     assert y.shape == (2, 4)
-    assert repr(d) == 'StereoImpulse()'
+    assert repr(d) == "StereoImpulse()"
     assert len(d) == 10
 
 
 def test_track_dataset():
-    d = datasets.Track('fixtures/short.wav', model.HParams(compress=True))
+    d = datasets.Track("fixtures/short.wav", model.HParams(compress=True))
     x, y = d[0]
     assert y.shape == (2, 16000)
     assert len(d) == 16
-    assert repr(d) == 'Track(fixtures/short.wav)'
+    assert repr(d) == "Track(fixtures/short.wav)"
 
 
 def test_track_uncompressed():
-    d = datasets.Track('fixtures/short.wav', model.HParams(compress=False))
+    d = datasets.Track("fixtures/short.wav", model.HParams(compress=False))
     x, y = d[0]
     assert y.shape == (2, 16000)
     assert len(d) == 16
-    assert repr(d) == 'Track(fixtures/short.wav)'
+    assert repr(d) == "Track(fixtures/short.wav)"
 
 
 def test_track_dataset_stacked():
-    d = datasets.Track('fixtures/short.wav', model.HParams())
+    d = datasets.Track("fixtures/short.wav", model.HParams())
     x, y = datasets.to_tensor(d)
     assert x.shape == (16, 2, 16000)
     assert y.shape == (16, 2, 16000)
-    assert torch.min(y) >= 0.
-    assert torch.max(y) <= 256.
+    assert torch.min(y) >= 0.0
+    assert torch.max(y) <= 256.0
 
 
 def test_track():
     p = model.HParams()
-    ds, ds_test = datasets.tracks('fixtures/short.wav', 0.4, p)
+    ds, ds_test = datasets.tracks("fixtures/short.wav", 0.4, p)
     x, y = ds[0]
     x_test, y_test = ds_test[0]
     assert len(ds) == 9
@@ -56,7 +56,7 @@ def test_sines_dataset():
     assert y.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo
     assert len(d) == 4
-    assert repr(d) == 'Sines(nseconds: 1.0)'
+    assert repr(d) == "Sines(nseconds: 1.0)"
 
 
 def test_sines_fixed_amp_dataset():
@@ -65,15 +65,15 @@ def test_sines_fixed_amp_dataset():
     assert x.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo
     assert len(d) == 4
-    assert repr(d) == 'Sines(nseconds: 1.0, amp: 0.5, hz: 440)'
+    assert repr(d) == "Sines(nseconds: 1.0, amp: 0.5, hz: 440)"
 
 
 def test_sines_dataset_stacked():
     d = datasets.Sines(4, model.HParams())
     x, y = datasets.to_tensor(d)
     assert y.shape == (4, 2, 16000)
-    assert torch.min(y) >= 0.
-    assert torch.max(y) <= 256.
+    assert torch.min(y) >= 0.0
+    assert torch.max(y) <= 256.0
 
 
 def test_sines_dataloader():

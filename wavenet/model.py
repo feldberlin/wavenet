@@ -27,18 +27,18 @@ class Wavenet(nn.Module):
         # hide the present time step t in the input
         # go from stereo straight to the network channel depth
         self.input = ShiftedCausal1d(
-            cfg.n_audio_chans,
-            cfg.n_chans,
-            kernel_size=cfg.kernel_size
+            cfg.n_audio_chans, cfg.n_chans, kernel_size=cfg.kernel_size
         )
 
         # residual blocks, as described in Figure 4
         # a single context stack with 1, 2, 4... dilations
-        self.layers = nn.ModuleList([
-            ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
-            for i in range(cfg.n_layers)
-            for _ in range(cfg.dilation_stacks)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
+                for i in range(cfg.n_layers)
+                for _ in range(cfg.dilation_stacks)
+            ]
+        )
 
         # the final network in network dense layers
         self.a1x1 = nn.Conv1d(cfg.n_chans, cfg.n_chans, kernel_size=1)
@@ -87,10 +87,7 @@ class ResBlock(nn.Module):
         super().__init__()
 
         self.conv = Causal1d(
-            n_chans,
-            n_chans * 2,
-            kernel_size=kernel_size,
-            dilation=dilation
+            n_chans, n_chans * 2, kernel_size=kernel_size, dilation=dilation
         )
 
         self.end1x1 = nn.Conv1d(n_chans, n_chans, kernel_size=1)
@@ -98,10 +95,7 @@ class ResBlock(nn.Module):
 
     def forward(self, x):
         gated = F.glu(self.conv(x), dim=1)
-        return (
-            self.end1x1(gated) + x,
-            self.skip1x1(gated)
-        )
+        return (self.end1x1(gated) + x, self.skip1x1(gated))
 
 
 class Causal1d(nn.Conv1d):
@@ -162,7 +156,7 @@ class HParams(utils.HParams):
     sampling_rate = 16000
 
     # sample bit depth
-    n_classes = 2**8
+    n_classes = 2 ** 8
 
     # conv channels used throughout
     n_chans = 64
@@ -194,7 +188,7 @@ class HParams(utils.HParams):
         return self.n_classes * self.n_audio_chans
 
     def receptive_field_size(self):
-        return self.dilation_stacks * 2**self.n_layers
+        return self.dilation_stacks * 2 ** self.n_layers
 
     def receptive_field_size_ms(self):
         return 1000 * self.receptive_field_size() / self.sampling_rate
@@ -205,9 +199,9 @@ class HParams(utils.HParams):
     def device(self):
         if torch.cuda.is_available():
             return torch.cuda.current_device()
-        return 'cpu'
+        return "cpu"
 
     def sampling_device(self):
         if self.sample_from_gpu and torch.cuda.is_available():
             return torch.cuda.current_device()
-        return 'cpu'
+        return "cpu"

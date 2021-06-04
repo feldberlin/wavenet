@@ -1,3 +1,8 @@
 #!/bin/bash
 
-flake8 wavenet --count --max-complexity=13 --max-line-length=80 --statistics
+flake8 wavenet \
+  --ignore=E203 \
+  --count \
+  --max-complexity=13 \
+  --max-line-length=80 \
+  --statistics
