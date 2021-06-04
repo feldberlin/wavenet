@@ -21,6 +21,7 @@ def activations(m: nn.Module, memo: dict):
     """
 
     def hook_fn(module, input, output): memo[module] = output
+
     def register(modules: typing.Dict[str, nn.Module]):
         for name, layer in modules.items():
             if isinstance(layer, nn.ModuleList):

@@ -5,18 +5,17 @@ Notebook tools
 import numpy as np  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 import celluloid  # type: ignore
-import torch
 from torch.nn import functional as F
 
 
 def plot_track(track, offset: int = 0, n_samples: int = 350,
-                      title: str = 'track', style: str = '-'):
+               title: str = 'track', style: str = '-'):
 
     plt.figure(figsize=(15, 7))
     for channel in range(len(track)):
         data = track[channel, offset:offset+n_samples]
-        legend = f'{title}: channel {channel}, offset {offset}, n_samples {n_samples}'
-        plt.title(legend)
+        msg = f'{title}: chan {channel}, offset {offset}, samples {n_samples}'
+        plt.title(msg)
         plt.plot(data, style)
 
     plt.tight_layout()

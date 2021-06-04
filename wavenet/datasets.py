@@ -10,7 +10,6 @@
 
 import abc
 import collections
-import typing
 
 import numpy as np  # type: ignore
 import torch
@@ -82,7 +81,7 @@ class Dataset(torch.utils.data.Dataset, collections.abc.Sequence):
     def transforms(self) -> Transforms: raise NotImplementedError
 
 
-def to_tensor(d: Dataset, n_items = None):
+def to_tensor(d: Dataset, n_items=None):
     "Materialize the whole dataset"
     n_items = n_items if n_items else len(d)
     return (
@@ -162,7 +161,7 @@ class StereoImpulse(Dataset):
         return self.tf(self.data[idx])
 
     def __repr__(self):
-        return f'StereoImpulse()'
+        return 'StereoImpulse()'
 
 
 class Sines(Dataset):
@@ -172,7 +171,7 @@ class Sines(Dataset):
 
     def __init__(self, n_examples, cfg,
                  amp: float = None, hz: float = None, phase: float = None,
-                 minhz = 400, maxhz = 20000):
+                 minhz=400, maxhz=20000):
 
         # config
         self.n_seconds = cfg.sample_size_ms() / 1000
@@ -182,10 +181,17 @@ class Sines(Dataset):
         # normalisations
         self.tf = AudioUnitTransforms(cfg)
 
-        # draw random parameters at init
-        self.amp = amp if amp else torch.rand(n_examples)
-        self.hz = hz if hz else torch.rand(n_examples) * maxhz + minhz
-        self.phase = phase if phase else torch.rand(n_examples) * np.pi * 2 / self.hz
+        # amp
+        default_amp = torch.rand(n_examples)
+        self.amp = amp if amp else default_amp
+
+        # hz
+        default_hz = torch.rand(n_examples) * maxhz + minhz
+        self.hz = hz if hz else default_hz
+
+        # phase
+        default_phase = torch.rand(n_examples) * np.pi * 2 / self.hz
+        self.phase = phase if phase else default_phase
 
     @property
     def transforms(self):
@@ -262,7 +268,7 @@ class Tiny(Dataset):
         # Now, with the m split points between 0 and n, we create a mask where
         # values are below those cutoff points. We will apply the mask to half
         # the series, and the inverse of the mask to the complementary series.
-        mask =  torch.arange(n).unsqueeze(-1) > splits
+        mask = torch.arange(n).unsqueeze(-1) > splits
         mask = torch.stack((mask, ~mask), dim=-1)
         series[mask] = 0
 

@@ -2,16 +2,42 @@
 #
 # Run this once to install the dev environment.
 
-# virtual env
-python -m venv .venv
+usage() {
+  echo Install venv. Run without args to install. Args:
+  echo "  --help|-h                   Help"
+  echo "  --install-in-notebook|-n    Install ipykernel. Do a normal install before this."
+  echo
+}
+
+while test "$#" -gt 0
+do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --install-in-notebook|-n)
+      shift;
+      source .venv/bin/activate
+      jupyter labextension install @jupyter-widgets/jupyterlab-manager@1.0
+      jupyter labextension install jupyter-matplotlib
+      jupyter nbextension enable --py widgetsnbextension
+      python -m ipykernel install --user --name=.venv-wavenet
+      exit 0
+      ;;
+    *)
+      echo >&2 "unknown switch $1"
+      exit 1
+      ;;
+  esac
+done
+
+# install virtualenv
+if [[ ! -d .venv ]]; then
+  python -m venv .venv
+fi
+
+# install deps
 source .venv/bin/activate
 pip install -r requirements.txt
 pip install -r requirements.dev.txt
-
-# jupyter lab magic foo
-jupyter labextension install @jupyter-widgets/jupyterlab-manager@1.0
-jupyter labextension install jupyter-matplotlib
-jupyter nbextension enable --py widgetsnbextension
-
-# kernel
-python -m ipykernel install --user --name=.venv-wavenet

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+flake8 wavenet --count --max-complexity=13 --max-line-length=80 --statistics

@@ -8,4 +8,5 @@ set -e
 export WANDB_MODE=disabled
 source .venv/bin/activate
 mypy .
+bin/lint
 python -m pytest -m "not integration" --disable-warnings "$@"

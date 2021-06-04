@@ -6,7 +6,6 @@ from torch.nn import functional as F
 from torch.optim import lr_scheduler
 import numpy as np  # type: ignore
 import torch
-import torch.nn as nn
 import wandb
 
 
@@ -118,7 +117,7 @@ def load_hparams(path):
     del p['_wandb']
     del p['wandb_version']
     return (
-        { k: v['value'] for k, v in p.items() if k != 'train' },
+        {k: v['value'] for k, v in p.items() if k != 'train'},
         p.pop('train')['value']
     )
 

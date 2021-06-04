@@ -3,24 +3,22 @@
 Fast sampling as per https://arxiv.org/abs/1611.09482
 """
 
-import typing
 from collections import deque
 
-from torch.nn import functional as F
 import torch
-import torch.cuda as cuda
 import torch.cuda.amp as amp
 import torch.nn as nn
 
 from wavenet import utils, model, train, datasets
 
 
-def fast(m: model.Wavenet, tf: datasets.Transforms, decoder,
-           n_samples: int, batch_size: int = 1):
+def fast(m: model.Wavenet, tf: datasets.Transforms, decoder, n_samples: int,
+         batch_size: int = 1):
     "Process one sample at a time with a utils.decode_* decoder function."
     device = m.cfg.sampling_device()
     g = Generator(m).to(device)
-    x = torch.zeros((batch_size, m.cfg.n_audio_chans, 1), dtype=torch.float)
+    shape = (batch_size, m.cfg.n_audio_chans, 1)
+    x = torch.zeros(shape, dtype=torch.float)
     x = x.to(device)
     with torch.set_grad_enabled(False):
         with amp.autocast(enabled=m.cfg.mixed_precision):
@@ -45,7 +43,8 @@ def simple(m: model.Wavenet, tf: datasets.NormaliseTransforms, decoder,
     "Naïve sampling loop"
     device = m.cfg.sampling_device()
     m = m.to(device)
-    y = torch.zeros((batch_size, m.cfg.n_audio_chans, n_samples), dtype=torch.float)
+    shape = (batch_size, m.cfg.n_audio_chans, n_samples)
+    y = torch.zeros(shape, dtype=torch.float)
     y += tf.mean  # this will be normalised back to zero
     y = y.to(device)
     with torch.set_grad_enabled(False):
