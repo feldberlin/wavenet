@@ -1,4 +1,4 @@
-![Build](https://github.com/feldberlin/wavenet/workflows/CI/badge.svg)
+[![Build](https://github.com/feldberlin/wavenet/workflows/CI/badge.svg)](https://github.com/feldberlin/wavenet/actions)
 
 # Wavenet
 
