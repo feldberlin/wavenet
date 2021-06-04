@@ -1,11 +1,12 @@
 import inspect
-import yaml
 import random
+import yaml
 
-import torch
 from torch.nn import functional as F
 from torch.optim import lr_scheduler
 import numpy as np  # type: ignore
+import torch
+import torch.nn as nn
 import wandb
 
 

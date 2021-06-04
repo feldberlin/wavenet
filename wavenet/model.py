@@ -165,7 +165,7 @@ class HParams(utils.HParams):
     n_classes = 2**8
 
     # conv channels used throughout
-    n_chans = 256
+    n_chans = 64
 
     # layers per dilation stack in a single context stack
     n_layers = 10

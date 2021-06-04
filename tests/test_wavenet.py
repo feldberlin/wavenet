@@ -10,7 +10,7 @@ import pytest
 
 def test_hparams():
     p = model.HParams()
-    assert p.n_chans == 256
+    assert p.n_chans == 64
     assert p.n_logits() == 512
 
 
