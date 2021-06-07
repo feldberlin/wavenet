@@ -35,6 +35,12 @@ def test_wavenet_mono_output_shape():
     assert x.shape == (3, 256, 1, 4)
 
 
+def test_wavenet_dilation_stacks():
+    m = model.Wavenet(model.HParams(n_layers=2, dilation_stacks=2))
+    dilations = [l.conv.dilation[0] for l in m.layers]
+    assert dilations == [1, 2, 1, 2]
+
+
 def test_wavenet_modules_registered():
     m = model.Wavenet(model.HParams(n_layers=1, dilation_stacks=1))
     got = list(m.state_dict().keys())

@@ -34,8 +34,8 @@ class Wavenet(nn.Module):
         self.layers = nn.ModuleList(
             [
                 ResBlock(2 ** i, cfg)
-                for i in range(cfg.n_layers)
                 for _ in range(cfg.dilation_stacks)
+                for i in range(cfg.n_layers)
             ]
         )
 
@@ -163,7 +163,7 @@ class HParams(utils.HParams):
     n_classes: int = 2 ** 8
 
     # layers per dilation stack in a single context stack
-    n_layers: int = 10
+    n_layers: int = 11
 
     # convolution kernel size
     kernel_size: int = 2
