@@ -28,4 +28,4 @@ jobs:
     - name: Test wavenet
       run: |
         bin/test
-        bin/integration-test
+        bin/test-integration

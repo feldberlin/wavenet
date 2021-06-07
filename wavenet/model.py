@@ -16,8 +16,7 @@ class Wavenet(nn.Module):
     Cross entropy requires ground truth as 8 bit mu law companded quantized
     audio in e.g. [-128, 127], but shifted e.g. to [0, 255]. This net is
     using a categorical loss, and logits will be argmaxed to obtain
-    predictions. Network input is 8 bit mu law companded quantized audio
-    in [-128, 127].
+    predictions. Network input is 8 bit mu law companded normalised audio.
     """
 
     def __init__(self, cfg, run_path=None):
@@ -34,15 +33,15 @@ class Wavenet(nn.Module):
         # a single context stack with 1, 2, 4... dilations
         self.layers = nn.ModuleList(
             [
-                ResBlock(cfg.n_chans, cfg.kernel_size, 2 ** i)
+                ResBlock(2 ** i, cfg)
                 for i in range(cfg.n_layers)
                 for _ in range(cfg.dilation_stacks)
             ]
         )
 
         # the final network in network dense layers
-        self.a1x1 = nn.Conv1d(cfg.n_chans, cfg.n_chans, kernel_size=1)
-        self.b1x1 = nn.Conv1d(cfg.n_chans, cfg.n_logits(), kernel_size=1)
+        self.a1x1 = nn.Conv1d(cfg.n_chans_skip, cfg.n_chans_end, kernel_size=1)
+        self.b1x1 = nn.Conv1d(cfg.n_chans_end, cfg.n_logits(), kernel_size=1)
 
         # load a checkpoint
         if run_path:
@@ -83,19 +82,24 @@ class ResBlock(nn.Module):
     described in https://arxiv.org/pdf/1612.08083.pdf.
     """
 
-    def __init__(self, n_chans, kernel_size, dilation):
+    def __init__(self, dilation, cfg):
         super().__init__()
 
         self.conv = Causal1d(
-            n_chans, n_chans * 2, kernel_size=kernel_size, dilation=dilation
+            cfg.n_chans,
+            cfg.n_chans_res * 2,
+            kernel_size=cfg.kernel_size,
+            dilation=dilation,
         )
 
-        self.end1x1 = nn.Conv1d(n_chans, n_chans, kernel_size=1)
-        self.skip1x1 = nn.Conv1d(n_chans, n_chans, kernel_size=1)
+        self.res1x1 = nn.Conv1d(cfg.n_chans_res, cfg.n_chans, kernel_size=1)
+        self.skip1x1 = nn.Conv1d(
+            cfg.n_chans_res, cfg.n_chans_skip, kernel_size=1
+        )
 
     def forward(self, x):
         gated = F.glu(self.conv(x), dim=1)
-        return (self.end1x1(gated) + x, self.skip1x1(gated))
+        return (self.res1x1(gated) + x, self.skip1x1(gated))
 
 
 class Causal1d(nn.Conv1d):
@@ -135,50 +139,62 @@ class ShiftedCausal1d(Causal1d):
 class HParams(utils.HParams):
 
     # use mixed precision
-    mixed_precision = True
+    mixed_precision: bool = True
 
     # retain stereo in the input dataset. otherwise squashes to mono
-    stereo = True
+    stereo: bool = True
 
     # resample input dataset to sampling_rate before mu law compansion
-    resample = True
+    resample: bool = True
 
     # mu compress the input to n_classes
-    compress = True
+    compress: bool = True
 
     # length of a single track in samples
-    sample_length = 16000
+    sample_length: int = 16000
 
     # stereo, mono
-    n_audio_chans = 2
+    n_audio_chans: int = 2
 
     # audio sampling rate
-    sampling_rate = 16000
+    sampling_rate: int = 16000
 
     # sample bit depth
-    n_classes = 2 ** 8
-
-    # conv channels used throughout
-    n_chans = 64
+    n_classes: int = 2 ** 8
 
     # layers per dilation stack in a single context stack
-    n_layers = 10
+    n_layers: int = 10
 
     # convolution kernel size
-    kernel_size = 2
+    kernel_size: int = 2
 
     # number of repeated dilation patterns in a single context stack,
     # e.g. 1, 2, 4...128, 1, 2, 4...128 is 2 dilation stacks.
-    dilation_stacks = 3
+    dilation_stacks: int = 3
+
+    # used from the input conv and between layers. affects how much per sample
+    # information gets passed between each layer in a stack.
+    n_chans: int = 32
+
+    # number of channels collected from each layer via `skip1x1`.
+    n_chans_skip: int = 512
+
+    # channel depth used in the residual branch of each res blocks. affects
+    # the capacity of the conv and gating part in each resblock.
+    n_chans_res: int = 32
+
+    # final 1x1 convs at the very end of the network. use to reduce from
+    # `n_chans_skip` capacity, down towards `n_classes`.
+    n_chans_end: int = 128
 
     # random seed
-    seed = 5762
+    seed: int = 5762
 
     # run the generator on gpus
-    sample_from_gpu = True
+    sample_from_gpu: bool = True
 
     # used when setting the seed. this is an experimental torch feature
-    use_deterministic_algorithms = False
+    use_deterministic_algorithms: bool = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -205,3 +221,10 @@ class HParams(utils.HParams):
         if self.sample_from_gpu and torch.cuda.is_available():
             return torch.cuda.current_device()
         return "cpu"
+
+    def with_all_chans(self, n_chans: int):
+        self.n_chans = n_chans
+        self.n_chans_res = n_chans
+        self.n_chans_skip = n_chans
+        self.n_chans_end = n_chans
+        return self

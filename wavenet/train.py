@@ -5,6 +5,7 @@ Training loop
 from collections import defaultdict
 import math
 import os
+import typing
 
 from tqdm import tqdm  # type: ignore
 import numpy as np  # type: ignore
@@ -143,34 +144,34 @@ class Trainer:
 class HParams(utils.HParams):
 
     # wandb project
-    project_name = "feldberlin-wavenet"
+    project_name: str = "feldberlin-wavenet"
 
     # once over the whole dataset, how many times max
-    max_epochs = 10
+    max_epochs: int = 10
 
     # number of examples in a single batch
-    batch_size = 64
+    batch_size: int = 64
 
     # the learning rate
-    learning_rate = 3e-4
+    learning_rate: float = 3e-4
 
     # apply a one cycle schedule
-    onecycle = True
+    onecycle: bool = True
 
     # adam betas
-    betas = (0.9, 0.95)
+    betas: typing.Tuple[float, float] = (0.9, 0.95)
 
     # training loop clips gradients
-    grad_norm_clip = None
+    grad_norm_clip: typing.Optional[float] = None
 
     # how many steps before the callback is invoked
-    callback_fq = 8
+    callback_fq: int = 8
 
     # how many data loader threads to use
-    num_workers = 0
+    num_workers: int = 0
 
     # is this a learning rate finder run
-    finder = False
+    finder: bool = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():

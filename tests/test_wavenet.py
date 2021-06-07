@@ -10,7 +10,7 @@ import pytest
 
 def test_hparams():
     p = model.HParams()
-    assert p.n_chans == 64
+    assert p.n_chans > 0
     assert p.n_logits() == 512
 
 
@@ -43,8 +43,8 @@ def test_wavenet_modules_registered():
         "input.bias",
         "layers.0.conv.weight",
         "layers.0.conv.bias",
-        "layers.0.end1x1.weight",
-        "layers.0.end1x1.bias",
+        "layers.0.res1x1.weight",
+        "layers.0.res1x1.bias",
         "layers.0.skip1x1.weight",
         "layers.0.skip1x1.bias",
         "a1x1.weight",

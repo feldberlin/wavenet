@@ -93,7 +93,7 @@ class ResBlock(model.ResBlock):
     def __init__(self, r: model.ResBlock):
         super(model.ResBlock, self).__init__()
         self.conv = Memo(r.conv)
-        self.end1x1 = to_conv1d(r.end1x1)
+        self.res1x1 = to_conv1d(r.res1x1)
         self.skip1x1 = to_conv1d(r.skip1x1)
 
 
