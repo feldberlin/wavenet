@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from torch.optim import lr_scheduler
 import numpy as np  # type: ignore
 import torch
-import wandb
+import wandb  # type: ignore
 
 
 # logits and normalisation
@@ -90,6 +90,13 @@ def onecycle(optimizer, n_examples, cfg):
     return lr_scheduler.OneCycleLR(optimizer, lr, total_steps=n_steps)
 
 
+def lr_schedule(train_cfg, n_examples, optimizer):
+    if train_cfg.finder:
+        return lrfinder(optimizer, n_examples, train_cfg)
+    elif train_cfg.onecycle:
+        return onecycle(optimizer, n_examples, train_cfg)
+
+
 # lifecycle
 
 
@@ -129,6 +136,23 @@ def load_hparams(path):
         {k: v["value"] for k, v in p.items() if k != "train"},
         p.pop("train")["value"],
     )
+
+
+def init_wandb(model, train_cfg, dataset_name: str):
+    "Start up wandb"
+    wandb.init(project=train_cfg.project_name)
+    wandb.config.update(cfgdict(model.cfg, train_cfg))
+    wandb.config.update({"dataset": dataset_name})
+    wandb.watch(model, log="all")
+    wandb.save("checkpoints.*")
+    if train_cfg.finder:
+        wandb.config.update({"dataset": "lrfinder"})
+
+
+def finish_wandb():
+    "Collect the final telemetry data"
+    wandb.save("checkpoints.*")
+    wandb.finish()
 
 
 def load_wandb_cfg(run_path):

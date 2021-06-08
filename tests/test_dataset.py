@@ -60,12 +60,39 @@ def test_sines_dataset():
 
 
 def test_sines_fixed_amp_dataset():
-    d = datasets.Sines(4, model.HParams(), amp=0.5, hz=440)
+    d = datasets.Sines(4, model.HParams(), amp=0.5)
     x, y = d[0]
     assert x.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo
+    assert isinstance(d.amp, float)  # one amp for all examples
+    assert d.hz.shape == (4,)  # one hz per example
+    assert d.phase.shape == (4,)  # one phase per example
     assert len(d) == 4
-    assert repr(d) == "Sines(nseconds: 1.0, amp: 0.5, hz: 440)"
+    assert repr(d) == "Sines(nseconds: 1.0, amp: 0.5)"
+
+
+def test_sines_fixed_hz_dataset():
+    d = datasets.Sines(4, model.HParams(), hz=200.)
+    x, y = d[0]
+    assert x.shape == (2, 16000)  # stereo
+    assert y.shape == (2, 16000)  # stereo
+    assert d.amp.shape == (4,)  # one amp per example
+    assert isinstance(d.hz, float)  # one hz for all examples
+    assert d.phase.shape == (4,)  # one phase per example
+    assert len(d) == 4
+    assert repr(d) == "Sines(nseconds: 1.0, hz: 200.0)"
+
+
+def test_sines_fixed_phase_dataset():
+    d = datasets.Sines(4, model.HParams(), phase=0.)
+    x, y = d[0]
+    assert x.shape == (2, 16000)  # stereo
+    assert y.shape == (2, 16000)  # stereo
+    assert d.amp.shape == (4,)  # one amp per example
+    assert d.hz.shape == (4,)  # one hz per example
+    assert isinstance(d.phase, float)  # one phase for all examples
+    assert len(d) == 4
+    assert repr(d) == "Sines(nseconds: 1.0, phase: 0.0)"
 
 
 def test_sines_dataset_stacked():

@@ -211,7 +211,7 @@ def test_memoed_shifted_causal1d():
 
 
 def test_many_logits_fast_vs_simple():
-    n_samples, n_examples = 2, 1
+    n_samples, n_examples = 2, 3
     p = model.HParams(
         mixed_precision=False,
         n_audio_chans=1,
