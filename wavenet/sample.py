@@ -61,8 +61,8 @@ def simple(
                 logits, _ = m(x)
                 logits = logits[:, :, :, t].unsqueeze(-1)  # N, K, C, 1
                 probabilities.append(logits)
-                yt = decoder(logits)
-                y[:, :, t] = yt.squeeze()
+                yt = decoder(logits)  # N, C, 1
+                y[:, :, t] = yt.squeeze(-1)
 
             return y, torch.cat(probabilities, -1)
 

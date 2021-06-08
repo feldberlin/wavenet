@@ -30,6 +30,10 @@ class Trainer:
         self.callback = callback
         self.device = self.model_cfg.device()
         self.model = torch.nn.DataParallel(self.model).to(self.device)
+        self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
+        self.optimizer = self.cfg.optimizer(self.model)
+        self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
+        utils.init_wandb(model, cfg, repr(self.trainset))
 
     def checkpoint(self, name):
         base = wandb.run.dir if wandb.run.dir != "/" else "."
@@ -42,27 +46,6 @@ class Trainer:
 
     def train(self):
         model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
-        optimizer = torch.optim.AdamW(
-            model.parameters(), lr=cfg.learning_rate, betas=cfg.betas
-        )
-
-        # half precision gradient scaler
-        scaler = amp.GradScaler(enabled=model_cfg.mixed_precision)
-
-        # telemetry
-        wandb.init(project=cfg.project_name)
-        wandb.config.update(utils.cfgdict(model_cfg, cfg))
-        wandb.config.update({"dataset": repr(self.trainset)})
-        wandb.watch(model, log="all")
-        wandb.save("checkpoints.*")
-
-        # lr schedule
-        schedule = None
-        if cfg.finder:
-            schedule = utils.lrfinder(optimizer, len(self.trainset), cfg)
-            wandb.config.update({"dataset": "lrfinder"})
-        elif cfg.onecycle:
-            schedule = utils.onecycle(optimizer, len(self.trainset), cfg)
 
         def run_epoch(split):
             is_train = split == "train"
@@ -90,23 +73,22 @@ class Trainer:
                 with torch.set_grad_enabled(is_train):
                     with amp.autocast(enabled=model_cfg.mixed_precision):
                         logits, loss = model(x, y)
-
-                    loss = loss.mean()  # collect gpus
-                    losses.append(loss.item())
+                        loss = loss.mean()  # collect gpus
+                        losses.append(loss.item())
 
                 if is_train:
                     model.zero_grad()
-                    scaler.scale(loss).backward()
+                    self.scaler.scale(loss).backward()
                     if cfg.grad_norm_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
                             model.parameters(), cfg.grad_norm_clip
                         )
-                    scaler.step(optimizer)
-                    scaler.update()
+                    self.scaler.step(self.optimizer)
+                    self.scaler.update()
 
-                    if schedule:
-                        schedule.step()
-                        lr = schedule.get_last_lr()[0]
+                    if self.schedule:
+                        self.schedule.step()
+                        lr = self.schedule.get_last_lr()[0]
                     else:
                         lr = cfg.learning_rate
 
@@ -117,7 +99,7 @@ class Trainer:
                     wandb.log({"train loss": loss})
 
                 if self.callback and it % cfg.callback_fq == 0:
-                    self.callback.tick(self.model, self.trainset, self.testset)
+                    self.callback.tick(model, self.trainset, self.testset)
 
             return float(np.mean(losses))
 
@@ -135,10 +117,6 @@ class Trainer:
                 if test_loss < best["test"]:
                     best["test"] = test_loss
                     self.checkpoint("best.test")
-
-        # hurra
-        wandb.save("checkpoints.*")
-        wandb.finish()
 
 
 class HParams(utils.HParams):
@@ -183,3 +161,8 @@ class HParams(utils.HParams):
     def n_steps(self, n_examples):
         batch_size = min(n_examples, self.batch_size)
         return math.ceil(n_examples / batch_size) * self.max_epochs
+
+    def optimizer(self, model):
+        return torch.optim.AdamW(
+            model.parameters(), lr=self.learning_rate, betas=self.betas
+        )

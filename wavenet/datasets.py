@@ -190,16 +190,16 @@ class Sines(Dataset):
         self.tf = AudioUnitTransforms(cfg)
 
         # amp
-        default_amp = torch.rand(n_examples)
-        self.amp = amp if amp else default_amp
+        default_amps = torch.rand(n_examples)
+        self.amp = amp if amp is not None else default_amps
 
         # hz
-        default_hz = torch.rand(n_examples) * maxhz + minhz
-        self.hz = hz if hz else default_hz
+        default_hzs = torch.rand(n_examples) * maxhz + minhz
+        self.hz = hz if hz is not None else default_hzs
 
         # phase
-        default_phase = torch.rand(n_examples) * np.pi * 2 / self.hz
-        self.phase = phase if phase else default_phase
+        default_phases = torch.rand(n_examples) * np.pi * 2 / self.hz
+        self.phase = phase if phase is not None else default_phases
 
     @property
     def transforms(self):
@@ -300,3 +300,11 @@ class Tiny(Dataset):
 
     def __getitem__(self, idx):
         return self.tf(self.data[:, :, idx])
+
+
+class TinySines(Dataset):
+    """Somewhat harder than either tiny or sines. Sweeping sines
+    """
+
+    def __init__(self, n, m):
+        self.tiny = Tiny(n, m)
