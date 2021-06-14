@@ -126,6 +126,53 @@ def test_loss_jacobian_many_samples():
     assert torch.equal(torch.tril(j), j)
 
 
+def test_loss_jacobian_full_receptive_field():
+    batch_size = 2
+    p = model.HParams(
+        n_audio_chans=1,
+        n_classes=2,
+        dilation_stacks=2,
+        n_layers=4,
+        sample_length=40
+
+    ).with_all_chans(10)
+
+    m = model.Wavenet(p)
+
+    # pin it down expected receptive field
+    assert p.receptive_field_size() == 32, p.receptive_field_size()
+    assert p.sample_length > p.receptive_field_size()
+
+    # all results should be class 2
+    y = torch.ones((batch_size, 1, p.sample_length), dtype=torch.long)
+
+    def loss(x):
+        logits, _ = m.forward(x)
+        losses = F.cross_entropy(logits, y, reduction="none")
+        return losses.sum(1)  # N, C, W -> N, W
+
+    # input is N, C, W. output is N, W. jacobian is N, W, N, C, W
+    x = torch.rand((batch_size, 1, p.sample_length))
+    j = jacobian(loss, x)
+
+    # sum everything else to obtain WxW
+    j = j.sum((0, 2, 3))
+
+    # pick the last row of the WxW jacobian. these are the derivatives of each
+    # input timestep with respect to the last output timestep. we also chop
+    # off the last input timestep, since this cannot have an effect on the
+    # last output timestep due to temporal masking.
+    receptive_field = j[-1, :-1]
+
+    # checks out
+    assert receptive_field.ne(0.).sum() == p.receptive_field_size()
+
+    # but let for real
+    expected = torch.zeros_like(receptive_field)
+    expected[-p.receptive_field_size():] = 1
+    assert expected.ne(0.).equal(receptive_field.ne(0.))
+
+
 @pytest.mark.integration
 def test_loss_stable_across_batch_sizes():
     batch_sizes = {1: None, 100: None}
