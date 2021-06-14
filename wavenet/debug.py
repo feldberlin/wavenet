@@ -63,3 +63,12 @@ def count_parameters(model) -> typing.Tuple[PrettyTable, int]:
         total_params += param
 
     return table, total_params
+
+
+def summarize(model):
+    "Pretty print some useful model information."
+
+    table, n_parameters = count_parameters(model)
+    print(table)
+    print(f'receptive field size: { model.cfg.receptive_field_size() }')
+    print(f'model total params: { n_parameters }')

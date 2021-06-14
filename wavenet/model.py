@@ -219,8 +219,8 @@ class HParams(utils.HParams):
 
     def sampling_device(self):
         if self.sample_from_gpu and torch.cuda.is_available():
-            return torch.cuda.current_device()
-        return "cpu"
+            return torch.device(torch.cuda.current_device())
+        return torch.device("cpu")
 
     def with_all_chans(self, n_chans: int):
         "Set all channel parameters to the same value"
