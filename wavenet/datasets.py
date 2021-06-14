@@ -307,8 +307,7 @@ class Tiny(Dataset):
 
 
 class TinySines(Dataset):
-    """Somewhat harder than either tiny or sines. Sweeping sines
-    """
+    """Somewhat harder than either tiny or sines. Sweeping sines"""
 
     def __init__(self, n, m):
         self.tiny = Tiny(n, m)

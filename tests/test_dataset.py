@@ -72,7 +72,7 @@ def test_sines_fixed_amp_dataset():
 
 
 def test_sines_fixed_hz_dataset():
-    d = datasets.Sines(4, model.HParams(), hz=200.)
+    d = datasets.Sines(4, model.HParams(), hz=200.0)
     x, y = d[0]
     assert x.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo
@@ -84,7 +84,7 @@ def test_sines_fixed_hz_dataset():
 
 
 def test_sines_fixed_phase_dataset():
-    d = datasets.Sines(4, model.HParams(), phase=0.)
+    d = datasets.Sines(4, model.HParams(), phase=0.0)
     x, y = d[0]
     assert x.shape == (2, 16000)  # stereo
     assert y.shape == (2, 16000)  # stereo

@@ -215,7 +215,7 @@ class HParams(utils.HParams):
     def device(self):
         if torch.cuda.is_available():
             return torch.device(torch.cuda.current_device())
-        return torch.device('cpu')
+        return torch.device("cpu")
 
     def sampling_device(self):
         if self.sample_from_gpu and torch.cuda.is_available():
