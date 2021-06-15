@@ -57,7 +57,7 @@ class NormaliseTransforms(Transforms):
     Transforms assume quantised x, y inputs.
     """
 
-    def __init__(self, mean, std):
+    def __init__(self, mean: float, std: float):
         self.mean = mean
         self.std = std
         self.eps = 1e-15
@@ -304,10 +304,3 @@ class Tiny(Dataset):
 
     def __getitem__(self, idx):
         return self.tf(self.data[:, :, idx])
-
-
-class TinySines(Dataset):
-    """Somewhat harder than either tiny or sines. Sweeping sines"""
-
-    def __init__(self, n, m):
-        self.tiny = Tiny(n, m)

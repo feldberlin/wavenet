@@ -23,14 +23,14 @@ def fast(
     device = m.cfg.sampling_device()
     g = Generator(m).to(device)
     shape = (batch_size, m.cfg.n_audio_chans, 1)
-    x = torch.zeros(shape, dtype=torch.float)
-    x = x.to(device)
+    x = torch.zeros(shape, dtype=torch.float).to(device)
+    y = torch.zeros(shape, dtype=torch.long).to(device)
     with torch.set_grad_enabled(False):
         with amp.autocast(enabled=m.cfg.mixed_precision):
             track = []
             probabilities = []
             for i in range(n_samples):
-                logits, _ = g.forward(x)
+                logits, _ = g.forward(x, y)
                 probabilities.append(logits)
                 y = decoder(logits)
                 x = tf.normalise(y)
@@ -50,21 +50,20 @@ def simple(
     device = m.cfg.sampling_device()
     m = m.to(device)
     shape = (batch_size, m.cfg.n_audio_chans, n_samples)
-    y = torch.zeros(shape, dtype=torch.float)
-    y += tf.mean  # this will be normalised back to zero
-    y = y.to(device)
+    x = torch.zeros(shape, dtype=torch.float).to(device) + tf.mean
+    y = torch.zeros(shape, dtype=torch.long).to(device)
     with torch.set_grad_enabled(False):
         with amp.autocast(enabled=m.cfg.mixed_precision):
             probabilities = []
             for t in range(n_samples):
-                x = tf.normalise(y)
-                logits, _ = m(x)
+                logits, _ = m(tf.normalise(x), y)
                 logits = logits[:, :, :, t].unsqueeze(-1)  # N, K, C, 1
                 probabilities.append(logits)
-                yt = decoder(logits)  # N, C, 1
-                y[:, :, t] = yt.squeeze(-1)
+                yt = decoder(logits).squeeze(-1)  # N, C
+                x[:, :, t] = yt
+                y[:, :, t] = yt
 
-            return y, torch.cat(probabilities, -1)
+            return x, torch.cat(probabilities, -1)
 
 
 class Generator(model.Wavenet):
@@ -83,7 +82,8 @@ class Generator(model.Wavenet):
         assert m.cfg.kernel_size == 2, m.cfg.kernel_size
         super().__init__(m.cfg)
         self.cfg = m.cfg
-        self.input = Memo(m.input)
+        self.embed = m.embed
+        self.shifted = Memo(m.shifted)
         self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)
         self.b1x1 = to_conv1d(m.b1x1)

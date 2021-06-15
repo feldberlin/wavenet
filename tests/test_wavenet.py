@@ -27,12 +27,28 @@ def test_wavenet_output_shape():
     assert y_hat.shape == (3, 256, 2, 4)
 
 
+def test_wavenet_input_embedded_output_shape():
+    m = model.Wavenet(model.HParams(embed_inputs=True))
+    y = torch.randint(256, (3, 2, 4))
+    x = y.float()
+    y_hat, _ = m.forward(x, y)
+    assert y_hat.shape == (3, 256, 2, 4)
+
+
 def test_wavenet_mono_output_shape():
     m = model.Wavenet(model.HParams(n_audio_chans=1))
     y = torch.randint(256, (3, 1, 4))
     x = y.float()
     x, _ = m.forward(x, y)
     assert x.shape == (3, 256, 1, 4)
+
+
+def test_wavenet_mono_input_embedded_output_shape():
+    m = model.Wavenet(model.HParams(embed_inputs=True, n_audio_chans=1))
+    y = torch.randint(256, (3, 1, 4))
+    x = y.float()
+    y_hat, _ = m.forward(x, y)
+    assert y_hat.shape == (3, 256, 1, 4)
 
 
 def test_wavenet_dilation_stacks():
@@ -45,8 +61,31 @@ def test_wavenet_modules_registered():
     m = model.Wavenet(model.HParams(n_layers=1, dilation_stacks=1))
     got = list(m.state_dict().keys())
     want = [
-        "input.weight",
-        "input.bias",
+        "shifted.weight",
+        "shifted.bias",
+        "layers.0.conv.weight",
+        "layers.0.conv.bias",
+        "layers.0.res1x1.weight",
+        "layers.0.res1x1.bias",
+        "layers.0.skip1x1.weight",
+        "layers.0.skip1x1.bias",
+        "a1x1.weight",
+        "a1x1.bias",
+        "b1x1.weight",
+        "b1x1.bias",
+    ]
+
+    assert got == want
+
+
+def test_wavenet_modules_registered_input_embedded():
+    p = model.HParams(n_layers=1, dilation_stacks=1, embed_inputs=True)
+    m = model.Wavenet(p)
+    got = list(m.state_dict().keys())
+    want = [
+        "embed.weight",
+        "shifted.weight",
+        "shifted.bias",
         "layers.0.conv.weight",
         "layers.0.conv.bias",
         "layers.0.res1x1.weight",
@@ -133,8 +172,7 @@ def test_loss_jacobian_full_receptive_field():
         n_classes=2,
         dilation_stacks=2,
         n_layers=4,
-        sample_length=40
-
+        sample_length=40,
     ).with_all_chans(10)
 
     m = model.Wavenet(p)
@@ -165,12 +203,12 @@ def test_loss_jacobian_full_receptive_field():
     receptive_field = j[-1, :-1]
 
     # checks out
-    assert receptive_field.ne(0.).sum() == p.receptive_field_size()
+    assert receptive_field.ne(0.0).sum() == p.receptive_field_size()
 
     # but let for real
     expected = torch.zeros_like(receptive_field)
-    expected[-p.receptive_field_size():] = 1
-    assert expected.ne(0.).equal(receptive_field.ne(0.))
+    expected[-p.receptive_field_size() :] = 1
+    assert expected.ne(0.0).equal(receptive_field.ne(0.0))
 
 
 @pytest.mark.integration

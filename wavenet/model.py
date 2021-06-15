@@ -23,10 +23,14 @@ class Wavenet(nn.Module):
         super().__init__()
         self.cfg = cfg
 
+        # embed inputs. not documented in the wavenet paper, see gh issue #2
+        if cfg.embed_inputs:
+            self.embed = InputEmbedding(cfg.n_classes, cfg.n_chans)
+
         # hide the present time step t in the input
-        # go from stereo straight to the network channel depth
-        self.input = ShiftedCausal1d(
-            cfg.n_audio_chans, cfg.n_chans, kernel_size=cfg.kernel_size
+        # go from input straight to the network channel depth
+        self.shifted = ShiftedCausal1d(
+            cfg.n_input_chans(), cfg.n_chans, kernel_size=cfg.kernel_size
         )
 
         # residual blocks, as described in Figure 4
@@ -56,8 +60,13 @@ class Wavenet(nn.Module):
         """
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
-            N, C, W = x.shape  # N, C=self.cfg.n_audio_chans, W
-            x = F.relu(self.input(x))  # N, C, W
+            N, C, W = x.shape  # N, C=self.cfg.n_input_chans(), W
+
+            # embed each categorical sample
+            if self.cfg.embed_inputs:
+                x = self.embed(y)
+
+            x = F.relu(self.shifted(x))  # N, C, W
             skips = 0
             for block in self.layers:
                 x, s = block(x)
@@ -136,6 +145,21 @@ class ShiftedCausal1d(Causal1d):
         return super().forward(x)
 
 
+class InputEmbedding(nn.Embedding):
+    """Embed each sample. Also works with stereo.
+
+    N, C, W to N, C * cfg.n_audio_chans, W. Expects the target representation
+    y as input. The channel dimension in the input represents mono or stereo.
+    In the output, the channel is the embedding dimension.
+    """
+
+    def forward(self, y):
+        N, C, W = y.shape
+        y = super().forward(y)  # embed into N, C, W, H=embedding_dim
+        y = torch.reshape(y, (N, W, C * self.embedding_dim))  # fold stereo
+        return y.permute(0, 2, 1)  # back to N, C, W
+
+
 class HParams(utils.HParams):
 
     # use mixed precision
@@ -158,6 +182,9 @@ class HParams(utils.HParams):
 
     # audio sampling rate
     sampling_rate: int = 16000
+
+    # map each input sample to an embedding in the channel domain
+    embed_inputs = False
 
     # sample bit depth
     n_classes: int = 2 ** 8
@@ -202,6 +229,12 @@ class HParams(utils.HParams):
 
     def n_logits(self):
         return self.n_classes * self.n_audio_chans
+
+    def n_input_chans(self):
+        return self.n_embed_dims() if self.embed_inputs else self.n_audio_chans
+
+    def n_embed_dims(self):
+        return self.n_chans * self.n_audio_chans
 
     def receptive_field_size(self):
         return self.dilation_stacks * 2 ** self.n_layers

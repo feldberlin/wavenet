@@ -26,13 +26,13 @@ def test_generator_forward_one_sample():
     assert y.shape == (2, m.cfg.n_classes, m.cfg.n_audio_chans, 1)
 
 
-def test_input_weights_generator_vs_wavenet():
+def test_shifted_weights_generator_vs_wavenet():
     m = model.Wavenet(model.HParams())
     g = sample.Generator(m)
-    assert torch.equal(m.input.weight, g.input.c.weight)
+    assert torch.equal(m.shifted.weight, g.shifted.c.weight)
 
 
-def test_input_units_generator_vs_wavenet_one_sample():
+def test_shifted_units_generator_vs_wavenet_one_sample():
     p = model.HParams(
         mixed_precision=False,
         n_audio_chans=1,
@@ -46,8 +46,8 @@ def test_input_units_generator_vs_wavenet_one_sample():
     m = model.Wavenet(p)
     g = sample.Generator(m)
     x = torch.rand((1, p.n_audio_chans, 1))
-    ym = m.input.forward(x).squeeze()
-    yg = g.input.forward(F.pad(x, (1, -1))).squeeze()  # causal
+    ym = m.shifted.forward(x).squeeze()
+    yg = g.shifted.forward(F.pad(x, (1, -1))).squeeze()  # causal
     assert torch.all(ym == yg)
 
 
@@ -67,6 +67,13 @@ def test_two_samples():
 
 def test_many_samples():
     m = model.Wavenet(model.HParams())
+    tf = datasets.AudioUnitTransforms(m.cfg)
+    track, *_ = sample.fast(m, tf, utils.decode_random, n_samples=50)
+    assert track.shape == (1, m.cfg.n_audio_chans, 50)
+
+
+def test_many_samples_with_embedding():
+    m = model.Wavenet(model.HParams(embed_inputs=True))
     tf = datasets.AudioUnitTransforms(m.cfg)
     track, *_ = sample.fast(m, tf, utils.decode_random, n_samples=50)
     assert track.shape == (1, m.cfg.n_audio_chans, 50)
