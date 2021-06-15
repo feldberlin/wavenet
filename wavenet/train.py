@@ -70,6 +70,7 @@ class Trainer:
 
                 x = x.to(self.device)
                 y = y.to(self.device)
+
                 with torch.set_grad_enabled(is_train):
                     with amp.autocast(enabled=model_cfg.mixed_precision):
                         logits, loss = model(x, y)
