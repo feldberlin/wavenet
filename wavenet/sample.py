@@ -82,7 +82,8 @@ class Generator(model.Wavenet):
         assert m.cfg.kernel_size == 2, m.cfg.kernel_size
         super().__init__(m.cfg)
         self.cfg = m.cfg
-        self.embed = m.embed
+        if self.cfg.embed_inputs:
+            self.embed = m.embed
         self.shifted = Memo(m.shifted)
         self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)

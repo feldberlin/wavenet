@@ -25,7 +25,7 @@ class Wavenet(nn.Module):
 
         # embed inputs. not documented in the wavenet paper, see gh issue #2
         if cfg.embed_inputs:
-            self.embed = InputEmbedding(cfg.n_classes, cfg.n_chans)
+            self.embed = InputEmbedding(cfg.n_classes, cfg.n_chans_embed)
 
         # hide the present time step t in the input
         # go from input straight to the network channel depth
@@ -184,7 +184,7 @@ class HParams(utils.HParams):
     sampling_rate: int = 16000
 
     # map each input sample to an embedding in the channel domain
-    embed_inputs = True
+    embed_inputs = False
 
     # sample bit depth
     n_classes: int = 2 ** 8
@@ -202,6 +202,9 @@ class HParams(utils.HParams):
     # used from the input conv and between layers. affects how much per sample
     # information gets passed between each layer in a stack.
     n_chans: int = 32
+
+    # number of embedding dimensions per stereo channel when embedding inputs
+    n_chans_embed: int = 64
 
     # number of channels collected from each layer via `skip1x1`.
     n_chans_skip: int = 512
@@ -234,7 +237,7 @@ class HParams(utils.HParams):
         return self.n_embed_dims() if self.embed_inputs else self.n_audio_chans
 
     def n_embed_dims(self):
-        return self.n_chans * self.n_audio_chans
+        return self.n_chans_embed * self.n_audio_chans
 
     def receptive_field_size(self):
         return self.dilation_stacks * 2 ** self.n_layers
@@ -258,6 +261,7 @@ class HParams(utils.HParams):
     def with_all_chans(self, n_chans: int):
         "Set all channel parameters to the same value"
         self.n_chans = n_chans
+        self.n_chans_embed = n_chans
         self.n_chans_res = n_chans
         self.n_chans_skip = n_chans
         self.n_chans_end = n_chans
