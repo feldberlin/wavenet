@@ -70,5 +70,5 @@ def summarize(model):
 
     table, n_parameters = count_parameters(model)
     print(table)
-    print(f'receptive field size: { model.cfg.receptive_field_size() }')
-    print(f'model total params: { n_parameters }')
+    print(f"receptive field size: { model.cfg.receptive_field_size() }")
+    print(f"model total params: { n_parameters }")

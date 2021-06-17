@@ -23,7 +23,7 @@ class Wavenet(nn.Module):
         super().__init__()
         self.cfg = cfg
 
-        # embed inputs. not documented in the paper, see gh issue #2
+        # embed inputs. not documented in the wavenet paper, see gh issue #2
         if cfg.embed_inputs:
             self.embed = InputEmbedding(cfg.n_classes, cfg.n_chans)
 
@@ -62,7 +62,7 @@ class Wavenet(nn.Module):
         with amp.autocast(enabled=self.cfg.mixed_precision):
             N, C, W = x.shape  # N, C=self.cfg.n_input_chans(), W
 
-            # embed each sample
+            # embed each categorical sample
             if self.cfg.embed_inputs:
                 x = self.embed(y)
 

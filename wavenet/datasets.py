@@ -21,7 +21,6 @@ from wavenet import utils, audio
 
 
 class Transforms:
-
     @abc.abstractmethod
     def __call__(self, data):
         "Convert from data to x, y for training"

@@ -172,8 +172,7 @@ def test_loss_jacobian_full_receptive_field():
         n_classes=2,
         dilation_stacks=2,
         n_layers=4,
-        sample_length=40
-
+        sample_length=40,
     ).with_all_chans(10)
 
     m = model.Wavenet(p)
@@ -204,12 +203,12 @@ def test_loss_jacobian_full_receptive_field():
     receptive_field = j[-1, :-1]
 
     # checks out
-    assert receptive_field.ne(0.).sum() == p.receptive_field_size()
+    assert receptive_field.ne(0.0).sum() == p.receptive_field_size()
 
     # but let for real
     expected = torch.zeros_like(receptive_field)
-    expected[-p.receptive_field_size():] = 1
-    assert expected.ne(0.).equal(receptive_field.ne(0.))
+    expected[-p.receptive_field_size() :] = 1
+    assert expected.ne(0.0).equal(receptive_field.ne(0.0))
 
 
 @pytest.mark.integration
