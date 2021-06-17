@@ -184,7 +184,7 @@ class HParams(utils.HParams):
     sampling_rate: int = 16000
 
     # map each input sample to an embedding in the channel domain
-    embed_inputs = False
+    embed_inputs = True
 
     # sample bit depth
     n_classes: int = 2 ** 8
