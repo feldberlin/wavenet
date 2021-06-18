@@ -49,7 +49,7 @@ def plot_random_track(
 def plot_audio_dataset(ds, cfg, n_examples=10):
     "Try to get an overview of the dataset."
 
-    track_i = plot_random_track(ds, style='.')
+    track_i = plot_random_track(ds, style=".")
     *_, track = ds[track_i]
     ipd.display(ipd.Audio(track, rate=cfg.sampling_rate))
 
@@ -59,18 +59,14 @@ def plot_audio_dataset(ds, cfg, n_examples=10):
         plt.plot(x[0, :])
 
 
-def plot_model_samples(m, transforms, cfg, n_samples=256, batch_size=10):
+def plot_model_samples(
+    m, transforms, sampler, cfg, n_samples=256, batch_size=10
+):
     "Plot samples drawn from a trained model."
-
-    sampler = sample.simple
 
     def generate(m, transforms, decoder):
         track, *_ = sampler(
-            m,
-            transforms,
-            decoder,
-            n_samples=n_samples,
-            batch_size=batch_size
+            m, transforms, decoder, n_samples=n_samples, batch_size=batch_size
         )
 
         plt.figure(figsize=(15, 8))
@@ -80,15 +76,15 @@ def plot_model_samples(m, transforms, cfg, n_samples=256, batch_size=10):
         plt.show()
 
     decoders = [
-        (utils.decode_argmax, 'argmax'),
-        (utils.decode_nucleus(core_mass=0.3), 'likely nucleus sampling'),
-        (utils.decode_nucleus(core_mass=0.7), 'relaxed nucleus sampling'),
-        (utils.decode_random, 'random sampling')
+        (utils.decode_argmax, "argmax"),
+        (utils.decode_nucleus(core_mass=0.3), "likely nucleus sampling"),
+        (utils.decode_nucleus(core_mass=0.7), "relaxed nucleus sampling"),
+        (utils.decode_random, "random sampling"),
     ]
 
     for decoder, name in decoders:
-        title = f'Decoding with {name}'
-        ipd.display(HTML(f'<h2>{title}</h2>'))
+        title = f"Decoding with {name}"
+        ipd.display(HTML(f"<h2>{title}</h2>"))
         utils.seed(cfg)
         for _ in range(3):
             generate(m, transforms, decoder)
