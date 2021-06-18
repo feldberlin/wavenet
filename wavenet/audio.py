@@ -16,7 +16,7 @@ def load_raw(filename: str, mono: bool = False):
 
 def load_resampled(filename: str, p):
     "Load a resampled track off disk into C, W in [-1., 1.]"
-    y, sr = load_raw(filename, mono=not p.stereo)
+    y, sr = load_raw(filename, mono=p.squash_to_mono)
     return resample(y, sr, p)
 
 

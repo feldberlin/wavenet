@@ -167,11 +167,11 @@ class HParams(utils.HParams):
     # use mixed precision
     mixed_precision: bool = True
 
-    # retain stereo in the input dataset. otherwise squashes to mono
-    stereo: bool = True
-
     # resample input dataset to sampling_rate before mu law compansion
     resample: bool = True
+
+    # squashes stereo to mono. otherwise retain stereo in the input dataset
+    squash_to_mono: bool = False
 
     # mu compress the input to n_classes
     compress: bool = True

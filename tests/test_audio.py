@@ -16,7 +16,7 @@ def test_load_raw_stereo():
 
 
 def test_load_resampled_mono():
-    p = model.HParams(stereo=False)
+    p = model.HParams(squash_to_mono=True)
     y = audio.load_resampled("fixtures/short.wav", p)
     assert y.shape == (1, 150432)
     assert np.min(y) >= -1.0
@@ -24,7 +24,7 @@ def test_load_resampled_mono():
 
 
 def test_load_resampled_stereo():
-    p = model.HParams(stereo=True)
+    p = model.HParams(squash_to_mono=False)
     y = audio.load_resampled("fixtures/short.wav", p)
     assert y.shape == (2, 150432)
     assert np.min(y) >= -1.0
