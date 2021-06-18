@@ -165,9 +165,11 @@ def test_loss_jacobian_many_samples():
     assert torch.equal(torch.tril(j), j)
 
 
-def test_loss_jacobian_full_receptive_field():
+@pytest.mark.parametrize("embed_inputs", [False])
+def test_loss_jacobian_full_receptive_field(embed_inputs):
     batch_size = 2
     p = model.HParams(
+        embed_inputs=embed_inputs,
         n_audio_chans=1,
         n_classes=2,
         dilation_stacks=2,

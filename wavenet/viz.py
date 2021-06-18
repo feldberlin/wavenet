@@ -2,10 +2,15 @@
 Notebook tools
 """
 
-import numpy as np  # type: ignore
-import matplotlib.pyplot as plt  # type: ignore
-import celluloid  # type: ignore
 from torch.nn import functional as F
+import celluloid  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+import numpy as np  # type: ignore
+
+import IPython.display as ipd  # type: ignore
+from IPython.core.display import HTML  # type: ignore
+
+from wavenet import utils, sample
 
 
 def plot_track(
@@ -39,6 +44,54 @@ def plot_random_track(
     *_, track = batch[i]
     plot_track(track, offset, n_samples, title, style)
     return i
+
+
+def plot_audio_dataset(ds, cfg, n_examples=10):
+    "Try to get an overview of the dataset."
+
+    track_i = plot_random_track(ds, style='.')
+    *_, track = ds[track_i]
+    ipd.display(ipd.Audio(track, rate=cfg.sampling_rate))
+
+    plt.figure(figsize=(20, 6))
+    for i in range(n_examples):
+        i, (x, y) = ds.sample()
+        plt.plot(x[0, :])
+
+
+def plot_model_samples(m, transforms, cfg, n_samples=256, batch_size=10):
+    "Plot samples drawn from a trained model."
+
+    sampler = sample.simple
+
+    def generate(m, transforms, decoder):
+        track, *_ = sampler(
+            m,
+            transforms,
+            decoder,
+            n_samples=n_samples,
+            batch_size=batch_size
+        )
+
+        plt.figure(figsize=(15, 8))
+        for i in range(batch_size):
+            plt.plot(track.cpu()[i, 0, :])
+
+        plt.show()
+
+    decoders = [
+        (utils.decode_argmax, 'argmax'),
+        (utils.decode_nucleus(core_mass=0.3), 'likely nucleus sampling'),
+        (utils.decode_nucleus(core_mass=0.7), 'relaxed nucleus sampling'),
+        (utils.decode_random, 'random sampling')
+    ]
+
+    for decoder, name in decoders:
+        title = f'Decoding with {name}'
+        ipd.display(HTML(f'<h2>{title}</h2>'))
+        utils.seed(cfg)
+        for _ in range(3):
+            generate(m, transforms, decoder)
 
 
 def plot_stereo_sample_distributions(logits, n: int):

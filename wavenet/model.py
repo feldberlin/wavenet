@@ -2,6 +2,8 @@
 Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
+import copy
+
 from torch.nn import functional as F
 import torch
 import torch.cuda.amp as amp
@@ -260,9 +262,20 @@ class HParams(utils.HParams):
 
     def with_all_chans(self, n_chans: int):
         "Set all channel parameters to the same value"
-        self.n_chans = n_chans
-        self.n_chans_embed = n_chans
-        self.n_chans_res = n_chans
-        self.n_chans_skip = n_chans
-        self.n_chans_end = n_chans
-        return self
+        cfg = copy.copy(self)
+        cfg.n_chans = n_chans
+        cfg.n_chans_embed = n_chans
+        cfg.n_chans_res = n_chans
+        cfg.n_chans_skip = n_chans
+        cfg.n_chans_end = n_chans
+        return cfg
+
+    def with_rescaled_chans(self, factor: float):
+        "Set all channel parameters to the scaled value"
+        cfg = copy.copy(self)
+        cfg.n_chans = int(self.n_chans * factor)
+        cfg.n_chans_embed = int(self.n_chans_embed * factor)
+        cfg.n_chans_res = int(self.n_chans_res * factor)
+        cfg.n_chans_skip = int(self.n_chans_skip * factor)
+        cfg.n_chans_end = int(self.n_chans_end * factor)
+        return cfg
