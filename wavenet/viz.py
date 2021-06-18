@@ -10,7 +10,7 @@ import numpy as np  # type: ignore
 import IPython.display as ipd  # type: ignore
 from IPython.core.display import HTML  # type: ignore
 
-from wavenet import utils, sample
+from wavenet import utils
 
 
 def plot_track(
