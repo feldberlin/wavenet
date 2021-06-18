@@ -30,10 +30,10 @@ def fast(
             track = []
             probabilities = []
             for i in range(n_samples):
-                logits, _ = g.forward(x, y)
+                logits, _ = g.forward(x, y)  # N, K, C, W=1
                 probabilities.append(logits)
-                y = decoder(logits)
-                x = tf.normalise(y)
+                y = decoder(logits)  # N, C, W=1
+                x = tf.normalise(y)  # N, C, W=1
                 track.append(y.detach().cpu())
 
             return (torch.cat(track, -1), torch.cat(probabilities, -1), g)

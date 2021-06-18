@@ -1,6 +1,7 @@
+from torch.nn import functional as F
+import pytest
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 
 from wavenet import model, sample, datasets, utils, train
 
@@ -217,10 +218,12 @@ def test_memoed_shifted_causal1d():
     assert torch.allclose(want, got)
 
 
-def test_many_logits_fast_vs_simple():
+@pytest.mark.parametrize("embed_inputs", [False])
+def test_many_logits_fast_vs_simple(embed_inputs):
     n_samples, n_examples = 2, 3
     p = model.HParams(
         mixed_precision=False,
+        embed_inputs=embed_inputs,
         n_audio_chans=1,
         n_classes=20,
         n_chans=32,

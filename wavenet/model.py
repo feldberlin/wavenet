@@ -158,8 +158,8 @@ class InputEmbedding(nn.Embedding):
     def forward(self, y):
         N, C, W = y.shape
         y = super().forward(y)  # embed into N, C, W, H=embedding_dim
-        y = torch.reshape(y, (N, W, C * self.embedding_dim))  # fold stereo
-        return y.permute(0, 2, 1)  # back to N, C, W
+        y = y.permute(0, 1, 3, 2)  # N, C, H, W
+        return torch.reshape(y, (N, self.embedding_dim * C, W))  # fold stereo
 
 
 class HParams(utils.HParams):

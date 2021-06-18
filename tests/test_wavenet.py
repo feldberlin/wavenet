@@ -1,12 +1,70 @@
-import numpy as np  # type: ignore
-import torch
-from torch.nn import functional as F
 from torch.autograd.functional import jacobian
+from torch.nn import functional as F
+import numpy as np  # type: ignore
+import pytest
+import torch
 
 from wavenet import model, utils, datasets
 
-import pytest
 
+# modules
+
+def test_input_embedding_mono():
+    n_classes, n_chans_embed = 2, 3
+    embedding = model.InputEmbedding(n_classes, n_chans_embed)
+    y = torch.tensor([
+        [[1, 0]],
+        [[0, 1]]
+    ])
+
+    # sanity
+    assert y[0, 0].equal(torch.tensor([1, 0]))
+    assert y[1, 0].equal(torch.tensor([0, 1]))
+
+    # extract embeddings
+    embedded = embedding(y)
+
+    # mono case
+    assert embedded[0, :, 0].equal(embedding.weight[1])
+    assert embedded[0, :, 1].equal(embedding.weight[0])
+    assert embedded[1, :, 0].equal(embedding.weight[0])
+    assert embedded[1, :, 1].equal(embedding.weight[1])
+
+
+def test_input_embedding_stereo():
+    n_classes, n_chans_embed = 2, 3
+    embedding = model.InputEmbedding(n_classes, n_chans_embed)
+    y = torch.tensor([
+        [[1, 0], [0, 1]],
+        [[0, 1], [0, 0]]
+    ])
+
+    # sanity example 1
+    assert y[0, 0].equal(torch.tensor([1, 0]))
+    assert y[0, 1].equal(torch.tensor([0, 1]))
+
+    # sanity example 2
+    assert y[1, 0].equal(torch.tensor([0, 1]))
+    assert y[1, 1].equal(torch.tensor([0, 0]))
+
+    # extract embeddings
+    embedded = embedding(y)
+
+    def get(i, j):
+        ei = embedding.weight[i]
+        ej = embedding.weight[j]
+        return torch.cat((ei, ej))
+
+    # embedding 1. is N=n_classes, C=n_chans_embed, W=2
+    assert embedded[0, :, 0].equal(get(1, 0))
+    assert embedded[0, :, 1].equal(get(0, 1))
+
+    # embedding 2
+    assert embedded[1, :, 0].equal(get(0, 0))
+    assert embedded[1, :, 1].equal(get(1, 0))
+
+
+# model
 
 def test_hparams():
     p = model.HParams()
