@@ -1,5 +1,6 @@
 ---
 name: Bug
+about: Create a bug report
 labels: bug
 
 ---

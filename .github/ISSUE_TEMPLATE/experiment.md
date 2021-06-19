@@ -1,5 +1,6 @@
 ---
 name: Experiment
+about: Plan an experiment
 labels: 'experiment'
 
 ---
