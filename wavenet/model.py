@@ -66,7 +66,7 @@ class Wavenet(nn.Module):
 
             # embed each categorical sample
             if self.cfg.embed_inputs:
-                x = self.embed(y)
+                x = self.embed(y)  # N, C, W
 
             x = F.relu(self.shifted(x))  # N, C, W
             skips = 0
@@ -154,6 +154,9 @@ class InputEmbedding(nn.Embedding):
     y as input. The channel dimension in the input represents mono or stereo.
     In the output, the channel is the embedding dimension.
     """
+
+    def __init__(self, n_classes: int, n_dims: int):
+        super().__init__(n_classes, n_dims, padding_idx=0)
 
     def forward(self, y):
         N, C, W = y.shape
