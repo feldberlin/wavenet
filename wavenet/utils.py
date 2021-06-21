@@ -106,8 +106,8 @@ def lr_schedule(train_cfg, n_examples, optimizer):
 # lifecycle
 
 
-def load_chkpt(m, run_path):
-    chkpt = wandb_restore("checkpoints.best.test", run_path)
+def load_chkpt(m, run_path, kind: str = 'best.test'):
+    chkpt = wandb_restore(f"checkpoints.{kind}", run_path)
     m.load_state_dict(torch.load(chkpt.name))
     return m
 
