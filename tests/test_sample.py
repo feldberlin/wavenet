@@ -218,17 +218,18 @@ def test_memoed_shifted_causal1d():
     assert torch.allclose(want, got)
 
 
+@pytest.mark.parametrize("n_audio_chans", [1, 2])
 @pytest.mark.parametrize("embed_inputs", [False, True])
-def test_many_logits_fast_vs_simple(embed_inputs):
-    n_samples, n_examples = 100, 1
+def test_many_logits_fast_vs_simple(embed_inputs, n_audio_chans):
+    n_samples, n_examples = 100, 5
     p = model.HParams(
         mixed_precision=False,
         embed_inputs=embed_inputs,
-        n_audio_chans=1,
+        n_audio_chans=n_audio_chans,
         n_classes=20,
         n_chans=16,
         dilation_stacks=1,
-        n_layers=1,
+        n_layers=2,
         compress=False,
         sample_length=n_samples,
         seed=135,

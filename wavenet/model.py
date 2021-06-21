@@ -156,7 +156,7 @@ class InputEmbedding(nn.Embedding):
     """
 
     def __init__(self, n_classes: int, n_dims: int):
-        super().__init__(n_classes, n_dims, padding_idx=0) # see gh issue #3
+        super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
 
     def forward(self, y):
         N, C, W = y.shape
