@@ -1,4 +1,6 @@
+from pathlib import Path
 import inspect
+import os
 import random
 import yaml
 
@@ -7,6 +9,10 @@ from torch.optim import lr_scheduler
 import numpy as np  # type: ignore
 import torch
 import wandb  # type: ignore
+
+
+# base directory that wandb restores old runs to.
+WANDB_RESTORE_DIR = Path("wandb") / "restore"
 
 
 # logits and normalisation
@@ -101,7 +107,7 @@ def lr_schedule(train_cfg, n_examples, optimizer):
 
 
 def load_chkpt(m, run_path):
-    chkpt = wandb.restore("checkpoints.best.test", run_path=run_path)
+    chkpt = wandb_restore("checkpoints.best.test", run_path)
     m.load_state_dict(torch.load(chkpt.name))
     return m
 
@@ -144,17 +150,23 @@ def init_wandb(model, train_cfg, dataset_name: str):
     wandb.config.update(cfgdict(model.cfg, train_cfg))
     wandb.config.update({"dataset": dataset_name})
     wandb.watch(model, log="all")
-    wandb.save("checkpoints.*")
+    wandb.save(os.path.join(wandb.run.dir, "checkpoints.*"))  # type: ignore
     if train_cfg.finder:
         wandb.config.update({"dataset": "lrfinder"})
 
 
 def finish_wandb():
     "Collect the final telemetry data"
-    wandb.save("checkpoints.*")
+    wandb.save(os.path.join(wandb.run.dir, "checkpoints.*"))
     wandb.finish()
+
+
+def wandb_restore(filename, run_path):
+    root = WANDB_RESTORE_DIR.joinpath(run_path)
+    root.mkdir(parents=True, exist_ok=True)
+    return wandb.restore(filename, run_path=run_path, root=root, replace=True)
 
 
 def load_wandb_cfg(run_path):
     "Load model and train cfg from wandb"
-    return load_hparams(wandb.restore("config.yaml", run_path=run_path))
+    return load_hparams(wandb_restore("config.yaml", run_path))
