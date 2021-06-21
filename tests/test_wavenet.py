@@ -9,13 +9,11 @@ from wavenet import model, utils, datasets
 
 # modules
 
+
 def test_input_embedding_mono():
     n_classes, n_chans_embed = 2, 3
     embedding = model.InputEmbedding(n_classes, n_chans_embed)
-    y = torch.tensor([
-        [[1, 0]],
-        [[0, 1]]
-    ])
+    y = torch.tensor([[[1, 0]], [[0, 1]]])
 
     # sanity
     assert y[0, 0].equal(torch.tensor([1, 0]))
@@ -34,10 +32,7 @@ def test_input_embedding_mono():
 def test_input_embedding_stereo():
     n_classes, n_chans_embed = 2, 3
     embedding = model.InputEmbedding(n_classes, n_chans_embed)
-    y = torch.tensor([
-        [[1, 0], [0, 1]],
-        [[0, 1], [0, 0]]
-    ])
+    y = torch.tensor([[[1, 0], [0, 1]], [[0, 1], [0, 0]]])
 
     # sanity example 1
     assert y[0, 0].equal(torch.tensor([1, 0]))
@@ -65,6 +60,7 @@ def test_input_embedding_stereo():
 
 
 # model
+
 
 def test_hparams():
     p = model.HParams()
