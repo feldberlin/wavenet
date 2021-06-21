@@ -272,13 +272,3 @@ class HParams(utils.HParams):
         cfg.n_chans_skip = n_chans
         cfg.n_chans_end = n_chans
         return cfg
-
-    def with_rescaled_chans(self, factor: float):
-        "Set all channel parameters to the scaled value"
-        cfg = copy.copy(self)
-        cfg.n_chans = int(self.n_chans * factor)
-        cfg.n_chans_embed = int(self.n_chans_embed * factor)
-        cfg.n_chans_res = int(self.n_chans_res * factor)
-        cfg.n_chans_skip = int(self.n_chans_skip * factor)
-        cfg.n_chans_end = int(self.n_chans_end * factor)
-        return cfg
