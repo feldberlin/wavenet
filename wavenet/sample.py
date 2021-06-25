@@ -149,7 +149,7 @@ def to_conv1d(x: nn.Conv1d):
         return y
 
 
-def load(run_path: str, kind: str = 'best.test'):
+def load(run_path: str, kind: str = "best.test"):
     "Load config and model from wandb"
     p, ptrain = utils.load_wandb_cfg(run_path)
     p, ptrain = model.HParams(**p), train.HParams(**ptrain)

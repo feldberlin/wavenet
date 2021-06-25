@@ -20,6 +20,7 @@ def plot_track(
     title: str = "track",
     style: str = "-",
 ):
+    "Expects C, W inputs"
 
     plt.figure(figsize=(15, 7))
     for channel in range(len(track)):
@@ -39,9 +40,10 @@ def plot_random_track(
     title: str = "track",
     style: str = "-",
 ):
+    "Expects C, W inputs"
 
     i = i if i is not None else np.random.randint(len(batch))
-    *_, track = batch[i]
+    _, track, *_ = batch[i]
     plot_track(track, offset, n_samples, title, style)
     return i
 
@@ -50,7 +52,7 @@ def plot_audio_dataset(ds, cfg, n_examples=10):
     "Try to get an overview of the dataset."
 
     track_i = plot_random_track(ds, style=".")
-    *_, track = ds[track_i]
+    _, track, *_ = ds[track_i]
     ipd.display(ipd.Audio(track, rate=cfg.sampling_rate))
 
     plt.figure(figsize=(20, 6))
@@ -65,7 +67,7 @@ def plot_model_samples(
     "Plot samples drawn from a trained model."
 
     def generate(m, transforms, decoder):
-        track, *_ = sampler(
+        _, track, *_ = sampler(
             m, transforms, decoder, n_samples=n_samples, batch_size=batch_size
         )
 

@@ -7,9 +7,13 @@
 # The same transforms are applied to all audio datasets, and these assume that
 # the dataset emits quantised integral x, y tensors.
 
-
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 import abc
 import collections
+import math
+import typing
 
 import numpy as np  # type: ignore
 import torch
@@ -96,6 +100,29 @@ def to_tensor(d: Dataset, n_items=None):
     )
 
 
+@dataclass(frozen=True)
+class TrackMeta:
+    "Info about the location and duration of an audio source file"
+
+    source_dir: Path  # root dataset dir for source file
+    cache_dir: typing.Optional[Path]  # root dataset dir for cached file
+    file_path: Path  # relative path to file
+    duration: int  # duration in seconds. final incomplete sample dropped
+
+    @property
+    def path(self):
+        return self.source_dir.joinpath(self.file_path)
+
+    @property
+    def cache_path(self):
+        if self.cache_dir:
+            return self.cache_dir.joinpath(self.file_path)
+
+    def asdict(self):
+        "pytorch only allows certain primitives when collating batches"
+        return {"path": str(self.path), "duration": self.duration}
+
+
 def tracks(filename: str, validation_pct: float, p):
     "Train - validation split on a single track"
     return (
@@ -104,38 +131,133 @@ def tracks(filename: str, validation_pct: float, p):
     )
 
 
-class Track(Dataset):
-    """Dataset constructed from a single track, held in memory.
-    Loads μ compressed slices from a single track into N, C, W in [-1., 1.].
+def trackmetas(
+    root: Path, cache: typing.Optional[Path], p
+) -> typing.List[TrackMeta]:
+    "Find tracks in a path and return path and duration metadata"
+
+    def meta(path):
+        duration = audio.duration(root / path, p)
+        n_examples = math.floor(duration / p.sample_length)
+        pruned = n_examples * p.sample_length
+        return TrackMeta(root, cache, path, pruned)
+
+    return [meta(path) for path in glob_tracks(root)]
+
+
+def glob_tracks(path: Path) -> typing.List[Path]:
+    "Return a glob of audio files in the given subtree."
+    return [
+        p.relative_to(path)
+        for p in path.rglob("*")
+        if p.suffix in [".wav", ".mp3"]
+    ]
+
+
+# core datasets
+
+
+class Tracks(Dataset):
+    """Create a single dataset out of a bunch of tracks on disk.
+
+    Set a `cache_dir` to store the resampled and compressed files in
+    a different location, because:
+
+    a. Resampling is quite slow. This is mitigated by a faster
+       `resampling_method` like sox_hq, but it's still slow.
+    b. mu compression is also quite slow.
+    c. Source files may be stored on network attached storage. In this case,
+       the cache location can be on a local ssd.
     """
 
-    def __init__(self, filename: str, p, start: float = 0.0, end: float = 1.0):
-        self.tf = AudioUnitTransforms(p)
-        self.filename = filename
-        y = audio.load_resampled(filename, p)  # audio data in [-1, 1]
-        _, n_samples = y.shape
-        y = y[:, int(n_samples * start) : int(n_samples * end)]  # start to end
-        y = audio.to_librosa(y)  # different mono channels for librosa
-        ys = audio.frame(y, p)  # cut frames from single track
-        ys = np.moveaxis(ys, -1, 0)  # reshape back to N, C, W
-        ys = torch.tensor(ys, dtype=torch.float32)
-        ys = ys[1:, :, :]  # trim hoplength leading silence
-        if p.compress:
-            ys = audio.mu_compress_batch(ys, p)
-        self.data = audio.quantise(ys, p)  # from [-1, 1] to [-n, n+1]
+    def __init__(
+        self,
+        cfg,
+        root_dir: Path,
+        tracks: typing.List[TrackMeta],
+        cache_dir: typing.Optional[Path] = None,
+    ):
+        self.tf = AudioUnitTransforms(cfg)
+        self.cfg = cfg
+        self.root_dir = root_dir
+        self.tracks = tracks
+        self.cache_dir = cache_dir
+        self.n_samples_total = sum(t.duration for t in tracks)
+
+        # build an index of track to cumulative starting sample number
+        offset = 0
+        self.offsets = [offset]
+        for t in tracks:
+            offset += t.duration
+            self.offsets.append(offset)
+
+    @staticmethod
+    def from_dir(cfg, root_dir: Path, cache_dir: typing.Optional[Path] = None):
+        "Build a dataset with all audio files under root_dir"
+        metas = trackmetas(root_dir, cache_dir, cfg)
+        return Tracks(cfg, root_dir, metas, cache_dir)
 
     @property
     def transforms(self):
         return self.tf
 
     def __len__(self):
-        return self.data.shape[0]
+        return math.floor(self.n_samples_total / self.cfg.sample_length)
 
     def __getitem__(self, idx):
-        return self.tf(self.data[idx])
+        "Get the given example index."
+
+        @lru_cache()
+        def meta(dataset_offset):
+            "get the correct (TrackMeta, track_offset) for this example idx"
+            for i, _ in enumerate(self.offsets):
+                if dataset_offset < self.offsets[i]:
+                    track = self.tracks[i - 1]
+                    track_offset = dataset_offset - self.offsets[i - 1]
+                    assert track_offset <= track.duration, track_offset
+                    return track, track_offset
+
+        track, track_offset = meta(self.cfg.sample_length * idx)
+        ys = self.cached_read(track, track_offset)
+        ys = audio.quantise(ys, self.cfg)  # from [-1, 1] to [-n, n+1]
+        x, y = self.tf(ys)
+        return x, y, track.asdict()
+
+    def cached_read(self, meta: TrackMeta, offset: int) -> np.array:
+        "Returns compressed and resampled tracks. Caches on disk"
+        if meta.cache_path and meta.cache_path.exists():
+            offset_seconds = offset / self.cfg.sampling_rate
+            duration_seconds = self.cfg.sample_size_ms() / 1000
+            y, sr = audio.load_raw(
+                meta.cache_path,
+                mono=self.cfg.squash_to_mono,
+                offset_seconds=offset_seconds,
+                duration_seconds=duration_seconds,
+            )
+
+            # make sure that the disk cache is at the expected sampling rate
+            assert sr == self.cfg.sampling_rate
+            return y
+        else:
+            y = audio.load_resampled(meta.path, self.cfg)
+            if self.cfg.compress:
+                y = audio.mu_compress(y, self.cfg)
+            y = torch.tensor(y, dtype=torch.float32)
+
+            # write the whole file
+            if meta.cache_path:
+                meta.cache_path.parent.mkdir(parents=True, exist_ok=True)
+                audio.write_raw(meta.cache_path, y, self.cfg)
+
+            # return just the example sliced from the file
+            y = y[:, offset : offset + self.cfg.sample_length]
+            return y
 
     def __repr__(self):
-        return f"Track({self.filename})"
+        return f"Tracks({self.root_dir})"
+
+
+# toy datasets
 
 
 class StereoImpulse(Dataset):
@@ -304,3 +426,49 @@ class Tiny(Dataset):
 
     def __getitem__(self, idx):
         return self.tf(self.data[:, :, idx])
+
+
+class Track(Dataset):
+    """Dataset constructed from a single track, held in memory.
+    Loads μ compressed slices from a single track into N, C, W in [-1., 1.].
+    """
+
+    def __init__(
+        self,
+        filename: str,
+        p,
+        start: float = 0.0,
+        end: float = 1.0,
+        tf: Transforms = None,
+    ):
+        # transforms can have corpus-wide stats
+        if tf:
+            self.tf = tf
+        else:
+            self.tf = AudioUnitTransforms(p)
+
+        self.filename = filename
+        y = audio.load_resampled(filename, p)  # audio data in [-1, 1]
+        _, n_samples = y.shape
+        y = y[:, int(n_samples * start) : int(n_samples * end)]  # start to end
+        y = audio.to_librosa(y)  # different mono channels for librosa
+        ys = audio.frame(y, p)  # cut frames from single track
+        ys = np.moveaxis(ys, -1, 0)  # reshape back to N, C, W
+        ys = torch.tensor(ys, dtype=torch.float32)
+        ys = ys[1:, :, :]  # trim hoplength leading silence
+        if p.compress:
+            ys = audio.mu_compress_batch(ys, p)
+        self.data = audio.quantise(ys, p)  # from [-1, 1] to [-n, n+1]
+
+    @property
+    def transforms(self):
+        return self.tf
+
+    def __len__(self):
+        return self.data.shape[0]
+
+    def __getitem__(self, idx):
+        return self.tf(self.data[idx])
+
+    def __repr__(self):
+        return f"Track({self.filename})"

@@ -173,6 +173,9 @@ class HParams(utils.HParams):
     # resample input dataset to sampling_rate before mu law compansion
     resample: bool = True
 
+    # see `librosa.resample`. trades off speed and quality
+    resampling_method: str = "soxr_hq"
+
     # squashes stereo to mono. otherwise retain stereo in the input dataset
     squash_to_mono: bool = False
 
@@ -206,21 +209,21 @@ class HParams(utils.HParams):
 
     # used from the input conv and between layers. affects how much per sample
     # information gets passed between each layer in a stack.
-    n_chans: int = 32
+    n_chans: int = 512
 
     # number of embedding dimensions per stereo channel when embedding inputs
-    n_chans_embed: int = 64
+    n_chans_embed: int = 256
 
     # number of channels collected from each layer via `skip1x1`.
-    n_chans_skip: int = 512
+    n_chans_skip: int = 256
 
     # channel depth used in the residual branch of each res blocks. affects
     # the capacity of the conv and gating part in each resblock.
-    n_chans_res: int = 32
+    n_chans_res: int = 256
 
     # final 1x1 convs at the very end of the network. use to reduce from
     # `n_chans_skip` capacity, down towards `n_classes`.
-    n_chans_end: int = 128
+    n_chans_end: int = 256
 
     # random seed
     seed: int = 5762
