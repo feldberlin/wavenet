@@ -150,14 +150,15 @@ def init_wandb(model, train_cfg, dataset_name: str):
     wandb.config.update(cfgdict(model.cfg, train_cfg))
     wandb.config.update({"dataset": dataset_name})
     wandb.watch(model, log="all")
-    wandb.save(os.path.join(wandb.run.dir, "checkpoints.*"))  # type: ignore
     if train_cfg.finder:
         wandb.config.update({"dataset": "lrfinder"})
 
 
 def finish_wandb():
     "Collect the final telemetry data"
-    wandb.save(os.path.join(wandb.run.dir, "checkpoints.*"))
+    wandb.save(
+        os.path.join(wandb.run.dir, "checkpoints.*"), base_path=wandb.run.dir
+    )
     wandb.finish()
 
 

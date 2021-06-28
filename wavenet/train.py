@@ -39,6 +39,7 @@ class Trainer:
         base = wandb.run.dir if wandb.run.dir != "/" else "."
         filename = os.path.join(base, self.cfg.ckpt_path(name))
         torch.save(self._model().state_dict(), filename)
+        wandb.save(filename, base_path=base)
 
     def _model(self):
         is_data_paralell = hasattr(self.model, "module")
