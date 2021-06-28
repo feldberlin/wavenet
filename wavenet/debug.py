@@ -1,9 +1,9 @@
 import typing
 
-from prettytable import PrettyTable  # type: ignore
 import torch
 import torch.nn as nn
 import torchviz  # type: ignore
+from prettytable import PrettyTable  # type: ignore
 
 from wavenet import model
 

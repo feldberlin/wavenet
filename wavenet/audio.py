@@ -1,12 +1,11 @@
-from pathlib import Path
 import math
 import typing
+from pathlib import Path
 
 import librosa  # type: ignore
 import numpy as np  # type: ignore
 import soundfile as sf  # type: ignore
 import torch
-
 
 # loading, resampling, framing
 

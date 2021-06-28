@@ -2,13 +2,12 @@
 Notebook tools
 """
 
-from torch.nn import functional as F
 import celluloid  # type: ignore
+import IPython.display as ipd  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np  # type: ignore
-
-import IPython.display as ipd  # type: ignore
 from IPython.core.display import HTML  # type: ignore
+from torch.nn import functional as F
 
 from wavenet import utils
 

@@ -1,6 +1,6 @@
 import numpy as np  # type: ignore
 
-from wavenet import model, audio
+from wavenet import audio, model
 
 
 def test_load_raw_mono():

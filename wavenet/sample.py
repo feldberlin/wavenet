@@ -9,7 +9,7 @@ import torch
 import torch.cuda.amp as amp
 import torch.nn as nn
 
-from wavenet import utils, model, train, datasets
+from wavenet import datasets, model, train, utils
 
 
 def fast(

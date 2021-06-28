@@ -1,11 +1,10 @@
-from torch.autograd.functional import jacobian
-from torch.nn import functional as F
 import numpy as np  # type: ignore
 import pytest
 import torch
+from torch.autograd.functional import jacobian
+from torch.nn import functional as F
 
-from wavenet import model, utils, datasets
-
+from wavenet import datasets, model, utils
 
 # modules
 

@@ -7,19 +7,18 @@
 # The same transforms are applied to all audio datasets, and these assume that
 # the dataset emits quantised integral x, y tensors.
 
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 import abc
 import collections
 import math
 import typing
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 
 import numpy as np  # type: ignore
 import torch
 
-from wavenet import utils, audio
-
+from wavenet import audio, utils
 
 # data transformations
 

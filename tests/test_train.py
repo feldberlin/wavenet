@@ -1,6 +1,6 @@
 import pytest
 
-from wavenet import train, datasets, model, audio
+from wavenet import audio, datasets, model, train
 
 
 def test_trainer_params():

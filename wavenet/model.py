@@ -4,10 +4,10 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 
 import copy
 
-from torch.nn import functional as F
 import torch
 import torch.cuda.amp as amp
 import torch.nn as nn
+from torch.nn import functional as F
 
 from wavenet import utils
 

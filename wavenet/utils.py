@@ -1,15 +1,16 @@
-from pathlib import Path
 import inspect
 import os
 import random
-import yaml
+import sys
+from pathlib import Path
 
-from torch.nn import functional as F
-from torch.optim import lr_scheduler
 import numpy as np  # type: ignore
 import torch
-import wandb  # type: ignore
+import yaml
+from torch.nn import functional as F
+from torch.optim import lr_scheduler
 
+import wandb  # type: ignore
 
 # base directory that wandb restores old runs to.
 WANDB_RESTORE_DIR = Path("wandb") / "restore"
@@ -152,6 +153,11 @@ def init_wandb(model, train_cfg, dataset_name: str):
     wandb.watch(model, log="all")
     if train_cfg.finder:
         wandb.config.update({"dataset": "lrfinder"})
+
+
+def log_wandb(key, value: float):
+    "Make sure we can see np.nan values"
+    wandb.log({key: sys.float_info.max if np.isnan(value) else value})
 
 
 def finish_wandb():

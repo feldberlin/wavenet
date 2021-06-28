@@ -1,10 +1,10 @@
 from pathlib import Path
 
+import test_helpers as helpers
 import torch
 from torch.nn import functional as F
 
-from wavenet import datasets, model, audio
-import test_helpers as helpers
+from wavenet import audio, datasets, model
 
 
 def test_stereo_impulse_dataset():

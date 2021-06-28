@@ -1,7 +1,6 @@
 import torch
 
-from wavenet import utils, model, train
-
+from wavenet import model, train, utils
 
 # config
 

@@ -2,19 +2,18 @@
 Training loop
 """
 
-from collections import defaultdict
 import math
 import os
 import typing
+from collections import defaultdict
 
-from tqdm import tqdm  # type: ignore
 import numpy as np  # type: ignore
-import wandb  # type: ignore
-
 import torch
 import torch.cuda.amp as amp
 from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm  # type: ignore
 
+import wandb  # type: ignore
 from wavenet import utils
 
 
@@ -97,8 +96,8 @@ class Trainer:
                     # logging
                     msg = f"{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
                     pbar.set_description(msg)
-                    wandb.log({"learning rate": lr})
-                    wandb.log({"train loss": loss})
+                    utils.log_wandb("learning rate", lr)
+                    utils.log_wandb("train loss", loss)
 
                 if self.callback and it % cfg.callback_fq == 0:
                     self.callback.tick(model, self.trainset, self.testset)
@@ -115,7 +114,7 @@ class Trainer:
 
             if self.testset is not None:
                 test_loss = run_epoch("test")
-                wandb.log({"test loss": test_loss})
+                utils.log_wandb("test loss", test_loss)
                 if test_loss < best["test"]:
                     best["test"] = test_loss
                     self.checkpoint("best.test")

@@ -1,7 +1,7 @@
-from pathlib import Path
 import contextlib
 import shutil
 import tempfile
+from pathlib import Path
 
 # base director for fixtures
 fixtures = Path("fixtures")

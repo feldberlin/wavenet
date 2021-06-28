@@ -1,9 +1,9 @@
-from torch.nn import functional as F
 import pytest
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
 
-from wavenet import model, sample, datasets, utils, train
+from wavenet import datasets, model, sample, train, utils
 
 
 def test_generator_init():
