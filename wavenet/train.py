@@ -97,7 +97,7 @@ class Trainer:
                     msg = f"{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
                     pbar.set_description(msg)
                     utils.log_wandb("learning rate", lr)
-                    utils.log_wandb("train loss", loss)
+                    utils.log_wandb("train loss", loss.item())
 
                 if self.callback and it % cfg.callback_fq == 0:
                     self.callback.tick(model, self.trainset, self.testset)
