@@ -34,9 +34,9 @@ def test_hparams_nsteps_last_batch_small():
 @pytest.mark.integration
 def test_learn_bimodally_distributed_stereo_at_t0():
     p = model.HParams().with_all_chans(2)
-    X = datasets.StereoImpulse(2 ** 13, 1, p)
+    ds = datasets.StereoImpulse(2 ** 13, 1, p)
     m = model.Wavenet(p)
-    t = train.Trainer(m, X, None, train.HParams(max_epochs=1), None)
+    t = train.Trainer(m, ds, None, train.HParams(max_epochs=1), None)
     t.train()
 
 

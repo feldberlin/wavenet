@@ -66,7 +66,7 @@ class Trainer:
                 else enumerate(loader)
             )
 
-            for it, (x, y) in pbar:
+            for it, (x, y, *_) in pbar:
 
                 x = x.to(self.device)
                 y = y.to(self.device)

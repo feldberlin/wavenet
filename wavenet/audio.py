@@ -1,17 +1,39 @@
+from pathlib import Path
+import math
+import typing
+
 import librosa  # type: ignore
-import torch
 import numpy as np  # type: ignore
+import soundfile as sf  # type: ignore
+import torch
 
 
 # loading, resampling, framing
 
 
-def load_raw(filename: str, mono: bool = False):
-    "Load a track off disk into C, W in [-1., 1.]"
-    y, sr = librosa.load(filename, sr=None, mono=mono)
+def load_raw(
+    filename: str,
+    mono: bool = False,
+    offset_seconds: float = 0.0,
+    duration_seconds: typing.Optional[float] = None,
+):
+    "Load a track off disk into C, W in [-1., 1.]."
+    y, sr = librosa.load(
+        filename,
+        sr=None,
+        mono=mono,
+        offset=offset_seconds,
+        duration=duration_seconds,
+    )
     if y.ndim == 1:
         y = np.expand_dims(y, axis=0)
     return y, sr
+
+
+def write_raw(path: Path, y: np.array, p):
+    "Write audio to disk at path, possibly in 8bit PCM"
+    subtype = "PCM_U8" if p.n_classes == 2 ** 8 else None
+    sf.write(str(path), np.transpose(y), p.sampling_rate, subtype=subtype)
 
 
 def load_resampled(filename: str, p):
@@ -23,7 +45,13 @@ def load_resampled(filename: str, p):
 def resample(y: np.array, input_sr: int, p):
     "Resample from and to C, W in [-1., 1.]"
     if p.resample and input_sr != p.sampling_rate:
-        y = librosa.resample(to_librosa(y), input_sr, p.sampling_rate)
+        y = librosa.resample(
+            to_librosa(y),
+            input_sr,
+            p.sampling_rate,
+            res_type=p.resampling_method,
+        )
+
         return from_librosa(y)
     return y
 
@@ -33,6 +61,16 @@ def frame(y, p):
     y = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2 ** 13)
     y = np.expand_dims(y, axis=0) if y.ndim == 2 else y  # mono case
     return y
+
+
+def duration(path: Path, p) -> int:
+    "Length of track in samples after processing."
+    info = sf.info(path)
+    n_samples = info.frames
+    if p.resample:
+        factor = p.sampling_rate / info.samplerate
+        n_samples = math.floor(n_samples * factor)
+    return n_samples
 
 
 # compression and quantisation

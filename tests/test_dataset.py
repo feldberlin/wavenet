@@ -1,7 +1,10 @@
+from pathlib import Path
+
 import torch
 from torch.nn import functional as F
 
-from wavenet import datasets, model
+from wavenet import datasets, model, audio
+import test_helpers as helpers
 
 
 def test_stereo_impulse_dataset():
@@ -48,6 +51,40 @@ def test_track():
     assert y.shape == (2, 16000)
     assert x_test.shape == (2, 16000)
     assert y_test.shape == (2, 16000)
+
+
+def test_tracks():
+    with helpers.tempdir() as cache:
+        p = model.HParams()
+        root = Path("fixtures")
+        ds = datasets.Tracks.from_dir(p, root, cache_dir=cache)
+        assert set(ds.tracks) == set(
+            [
+                datasets.TrackMeta(root, cache, Path("goldberg.wav"), 1504000),
+                datasets.TrackMeta(root, cache, Path("short.wav"), 144000),
+                datasets.TrackMeta(root, cache, Path("aria.wav"), 4784000),
+            ]
+        )
+
+        # spot check that short is actually as long as claimed
+        path, duration = root / "short.wav", 144000
+        y = audio.load_resampled(path, p)
+        _, n_samples = y.shape
+        truncated = (n_samples // p.sample_length) * p.sample_length
+        assert duration == truncated
+
+        # check that the ds length is consistent with meta durations
+        assert len(ds) * p.sample_length == sum([t.duration for t in ds.tracks])
+
+        # check that we can retrieve first and last examples.
+        # expensive due to the resampling step.
+        for i in [0, len(ds) - 1]:
+            x, y, meta = ds[i]
+            assert x is not None
+            assert x.shape == (2, p.sample_length)
+            assert y is not None
+            assert y.shape == (2, p.sample_length)
+            assert meta is not None
 
 
 def test_sines_dataset():
