@@ -61,7 +61,7 @@ class Trainer:
 
             losses = []
             pbar = (
-                tqdm(enumerate(loader), total=len(loader))
+                tqdm(enumerate(loader), total=len(loader), unit="batch")
                 if is_train
                 else enumerate(loader)
             )

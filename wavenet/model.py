@@ -3,6 +3,7 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
 import copy
+import math
 
 import torch
 import torch.cuda.amp as amp
@@ -49,6 +50,9 @@ class Wavenet(nn.Module):
         self.a1x1 = nn.Conv1d(cfg.n_chans_skip, cfg.n_chans_end, kernel_size=1)
         self.b1x1 = nn.Conv1d(cfg.n_chans_end, cfg.n_logits(), kernel_size=1)
 
+        # initialise parameters
+        reset_parameters(self)
+
         # load a checkpoint
         if run_path:
             utils.load_chkpt(self, run_path)
@@ -70,10 +74,12 @@ class Wavenet(nn.Module):
 
             x = F.relu(self.shifted(x))  # N, C, W
             skips = 0
+            n_skips = len(self.layers)
             for block in self.layers:
                 x, s = block(x)
-                skips += s
+                skips += s / n_skips
 
+            # normalise
             x = F.relu(skips)
             x = F.relu(self.a1x1(x))
             x = self.b1x1(x)  # N, C, W in and out
@@ -163,6 +169,39 @@ class InputEmbedding(nn.Embedding):
         y = super().forward(y)  # embed into N, C, W, H=embedding_dim
         y = y.permute(0, 1, 3, 2)  # N, C, H, W
         return torch.reshape(y, (N, self.embedding_dim * C, W))  # fold stereo
+
+
+def reset_parameters(m: Wavenet):
+    """Init weights and biases.
+
+    See gh #11 for context.
+    """
+
+    @torch.no_grad()
+    def init(layer):
+        if type(layer) == InputEmbedding:
+            layer.weight.normal_(0, 1)
+        if type(layer) in [ShiftedCausal1d, nn.Conv1d]:
+            n_out, n_in, *_ = layer.weight.shape
+            layer.weight.normal_(0, math.sqrt(1.5 / n_in))
+            layer.bias.zero_()
+        if type(layer) == ResBlock:
+            n_out, n_in, *_ = layer.conv.weight.shape
+            n_half_in = n_in // 2
+            linear = layer.conv.weight[:, :n_half_in]
+            sigmoid = layer.conv.weight[:, n_half_in:]
+            linear.normal_(0, math.sqrt(1 / n_half_in))
+            sigmoid.normal_(0, math.sqrt(12.96 / n_half_in))
+            layer.conv.bias.zero_()
+            init(layer.res1x1)
+            init(layer.skip1x1)
+
+    for layer in m.children():
+        if type(layer) == nn.ModuleList:
+            for module_layer in layer.children():
+                init(module_layer)
+        else:
+            init(layer)
 
 
 class HParams(utils.HParams):
@@ -266,8 +305,7 @@ class HParams(utils.HParams):
             return torch.device(torch.cuda.current_device())
         return torch.device("cpu")
 
-    def with_all_chans(self, n_chans: int):
-        "Set all channel parameters to the same value"
+    def all_chans_set_to(self, n_chans: int):
         cfg = copy.copy(self)
         cfg.n_chans = n_chans
         cfg.n_chans_embed = n_chans
