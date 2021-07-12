@@ -10,6 +10,7 @@
 import abc
 import collections
 import json
+import datetime
 import math
 import typing
 from dataclasses import dataclass
@@ -252,6 +253,11 @@ class Tracks(Dataset):
             # return just the example sliced from the file
             y = y[:, offset : offset + self.cfg.sample_length]
             return y
+
+    def duration(self) -> datetime.timedelta:
+        "The duration of this dataset"
+        n_seconds = int(len(self) / self.cfg.sample_length)
+        return datetime.timedelta(seconds=n_seconds)
 
     def __repr__(self):
         attrs = {

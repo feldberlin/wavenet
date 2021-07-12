@@ -3,6 +3,8 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
 import hashlib
+import copy
+import math
 
 import torch
 import torch.cuda.amp as amp
@@ -71,6 +73,9 @@ class Wavenet(nn.Module):
             bn=cfg.batch_norm,
         )
 
+        # initialise parameters
+        reset_parameters(self)
+
         # load a checkpoint
         if run_path:
             utils.restore(self, run_path)
@@ -95,9 +100,11 @@ class Wavenet(nn.Module):
 
             # residual
             skips = 0
+            n_skips = len(self.layers)
             for block in self.layers:
                 x, s = block(x)
                 skips += s
+
             x = F.relu(skips)
 
             # dense
@@ -241,6 +248,39 @@ class ResBlock(nn.Module):
     def forward(self, x):
         gated = F.glu(self.conv(x), dim=1)
         return self.res1x1(gated) + x, self.skip1x1(gated)
+
+
+def reset_parameters(m: Wavenet):
+    """Init weights and biases.
+
+    See gh #11 for context.
+    """
+
+    @torch.no_grad()
+    def init(layer):
+        if type(layer) == InputEmbedding:
+            layer.weight.normal_(0, 1)
+        if type(layer) in [ShiftedCausal1d, nn.Conv1d]:
+            n_out, n_in, *_ = layer.weight.shape
+            layer.weight.normal_(0, math.sqrt(1.5 / n_in))
+            layer.bias.zero_()
+        if type(layer) == ResBlock:
+            n_out, n_in, *_ = layer.conv.weight.shape
+            n_half_in = n_in // 2
+            linear = layer.conv.weight[:, :n_half_in]
+            sigmoid = layer.conv.weight[:, n_half_in:]
+            linear.normal_(0, math.sqrt(1 / n_half_in))
+            sigmoid.normal_(0, math.sqrt(12.96 / n_half_in))
+            layer.conv.bias.zero_()
+            init(layer.res1x1)
+            init(layer.skip1x1)
+
+    for layer in m.children():
+        if type(layer) == nn.ModuleList:
+            for module_layer in layer.children():
+                init(module_layer)
+        else:
+            init(layer)
 
 
 class HParams(utils.HParams):
