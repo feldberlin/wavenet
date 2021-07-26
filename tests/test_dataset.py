@@ -6,57 +6,13 @@ from torch.nn import functional as F
 
 from wavenet import audio, datasets, model
 
-
-def test_stereo_impulse_dataset():
-    d = datasets.StereoImpulse(10, 4, model.HParams())
-    x, y = d[0]
-    assert y.shape == (2, 4)
-    assert repr(d) == "StereoImpulse()"
-    assert len(d) == 10
-
-
-def test_track_dataset():
-    d = datasets.Track("fixtures/short.wav", model.HParams(compress=True))
-    x, y = d[0]
-    assert y.shape == (2, 16000)
-    assert len(d) == 16
-    assert repr(d) == "Track(fixtures/short.wav)"
-
-
-def test_track_uncompressed():
-    d = datasets.Track("fixtures/short.wav", model.HParams(compress=False))
-    x, y = d[0]
-    assert y.shape == (2, 16000)
-    assert len(d) == 16
-    assert repr(d) == "Track(fixtures/short.wav)"
-
-
-def test_track_dataset_stacked():
-    d = datasets.Track("fixtures/short.wav", model.HParams())
-    x, y = datasets.to_tensor(d)
-    assert x.shape == (16, 2, 16000)
-    assert y.shape == (16, 2, 16000)
-    assert torch.min(y) >= 0.0
-    assert torch.max(y) <= 256.0
-
-
-def test_track():
-    p = model.HParams()
-    ds, ds_test = datasets.tracks("fixtures/short.wav", 0.4, p)
-    x, y = ds[0]
-    x_test, y_test = ds_test[0]
-    assert len(ds) == 9
-    assert len(ds_test) == 5
-    assert x.shape == (2, 16000)
-    assert y.shape == (2, 16000)
-    assert x_test.shape == (2, 16000)
-    assert y_test.shape == (2, 16000)
+# tracks
 
 
 def test_tracks():
     with helpers.tempdir() as cache:
         p = model.HParams()
-        root = Path("fixtures")
+        root = Path("fixtures/goldberg")
         ds = datasets.Tracks.from_dir(p, root, cache_dir=cache)
         assert set(ds.tracks) == set(
             [
@@ -85,6 +41,16 @@ def test_tracks():
             assert y is not None
             assert y.shape == (2, p.sample_length)
             assert meta is not None
+
+
+def test_maestro():
+    root_dir = Path("fixtures/maestro")
+    train, test = datasets.maestro(root_dir, 2018, model.HParams())
+    assert len(train) == 1
+    assert len(test) == 1
+
+
+# sines
 
 
 def test_sines_dataset():
@@ -148,6 +114,9 @@ def test_sines_dataloader():
     assert y.shape == (4, 2, 16000)
 
 
+# tiny
+
+
 def test_tiny_dataloader():
     d = datasets.Tiny(30, 4)
     l = torch.utils.data.dataloader.DataLoader(d, batch_size=4)
@@ -155,3 +124,59 @@ def test_tiny_dataloader():
     assert len(d) == 4
     assert x.shape == (4, 1, 30)
     assert y.shape == (4, 1, 30)
+
+
+# impulse
+
+
+def test_stereo_impulse_dataset():
+    d = datasets.StereoImpulse(10, 4, model.HParams())
+    x, y = d[0]
+    assert y.shape == (2, 4)
+    assert repr(d) == "StereoImpulse()"
+    assert len(d) == 10
+
+
+# track
+
+
+def test_track_dataset():
+    d = datasets.Track(
+        "fixtures/goldberg/short.wav", model.HParams(compress=True)
+    )
+    x, y = d[0]
+    assert y.shape == (2, 16000)
+    assert len(d) == 16
+    assert repr(d) == "Track(fixtures/goldberg/short.wav)"
+
+
+def test_track_uncompressed():
+    d = datasets.Track(
+        "fixtures/goldberg/short.wav", model.HParams(compress=False)
+    )
+    x, y = d[0]
+    assert y.shape == (2, 16000)
+    assert len(d) == 16
+    assert repr(d) == "Track(fixtures/goldberg/short.wav)"
+
+
+def test_track_dataset_stacked():
+    d = datasets.Track("fixtures/goldberg/short.wav", model.HParams())
+    x, y = datasets.to_tensor(d)
+    assert x.shape == (16, 2, 16000)
+    assert y.shape == (16, 2, 16000)
+    assert torch.min(y) >= 0.0
+    assert torch.max(y) <= 256.0
+
+
+def test_track():
+    p = model.HParams()
+    ds, ds_test = datasets.tracks("fixtures/goldberg/short.wav", 0.4, p)
+    x, y = ds[0]
+    x_test, y_test = ds_test[0]
+    assert len(ds) == 9
+    assert len(ds_test) == 5
+    assert x.shape == (2, 16000)
+    assert y.shape == (2, 16000)
+    assert x_test.shape == (2, 16000)
+    assert y_test.shape == (2, 16000)

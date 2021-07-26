@@ -1,0 +1,20 @@
+[
+  {
+    "canonical_composer": "Alban Berg",
+    "canonical_title": "Sonata Op. 1",
+    "split": "train",
+    "year": 2018,
+    "midi_filename": "2018/1.midi",
+    "audio_filename": "2018/1.wav",
+    "duration": 698.661160312
+  },
+  {
+    "canonical_composer": "Alban Berg",
+    "canonical_title": "Sonata Op. 2",
+    "split": "test",
+    "year": 2018,
+    "midi_filename": "2018/2.midi",
+    "audio_filename": "2018/2.wav",
+    "duration": 698.661160312
+  }
+]
