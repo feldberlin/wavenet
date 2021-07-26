@@ -29,7 +29,6 @@ def activations(m: nn.Module, memo: dict):
             if isinstance(layer, nn.ModuleList):
                 register(layer._modules)
             else:
-                print("registered", name, layer)
                 layer.register_forward_hook(hook_fn)
 
     register(m._modules)
@@ -39,10 +38,10 @@ def dot(m: model.Wavenet):
     "Generate a graphviz graph of the network execution graph."
 
     N, C, W = 1, m.cfg.n_audio_chans, 10
-    x = torch.rand((N, C, W))
-    y, *_ = m(x)
+    y = torch.randint(m.cfg.n_classes, (N, C, W))
+    yhat, *_ = m(y.float(), y)
     return torchviz.make_dot(
-        y.mean(),
+        yhat.mean(),
         params=dict(m.named_parameters()),
         show_attrs=True,
         show_saved=True,
