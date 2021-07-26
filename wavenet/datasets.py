@@ -9,6 +9,7 @@
 
 import abc
 import collections
+import json
 import math
 import typing
 from dataclasses import dataclass
@@ -131,7 +132,10 @@ def tracks(filename: str, validation_pct: float, p):
 
 
 def trackmetas(
-    root: Path, cache: typing.Optional[Path], p
+    root: Path,
+    cache: typing.Optional[Path],
+    p,
+    tracks: typing.List[Path] = [],
 ) -> typing.List[TrackMeta]:
     "Find tracks in a path and return path and duration metadata"
 
@@ -141,7 +145,7 @@ def trackmetas(
         pruned = n_examples * p.sample_length
         return TrackMeta(root, cache, path, pruned)
 
-    return [meta(path) for path in glob_tracks(root)]
+    return [meta(path) for path in tracks or glob_tracks(root)]
 
 
 def glob_tracks(path: Path) -> typing.List[Path]:
@@ -254,6 +258,36 @@ class Tracks(Dataset):
 
     def __repr__(self):
         return f"Tracks({self.root_dir})"
+
+
+# Maestro 2.0.0
+
+
+def maestro(
+    root_dir: Path, year: int, cfg, cache_dir: typing.Optional[Path] = None
+) -> typing.Tuple[Tracks, Tracks]:
+
+    tracks = []
+    json_path = root_dir / "maestro-v2.0.0.json"
+    with open(json_path) as f:
+        tracks = json.load(f)
+
+    def metas(split):
+        return trackmetas(
+            root_dir,
+            cache_dir,
+            cfg,
+            [
+                Path(t["audio_filename"])
+                for t in tracks
+                if t["year"] == year and t["split"] == split
+            ],
+        )
+
+    return (
+        Tracks(cfg, root_dir, metas("train"), cache_dir),
+        Tracks(cfg, root_dir, metas("test"), cache_dir),
+    )
 
 
 # toy datasets
