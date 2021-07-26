@@ -3,7 +3,6 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
 import hashlib
-import copy
 import math
 
 import torch
@@ -100,7 +99,6 @@ class Wavenet(nn.Module):
 
             # residual
             skips = 0
-            n_skips = len(self.layers)
             for block in self.layers:
                 x, s = block(x)
                 skips += s
@@ -128,7 +126,8 @@ class InputEmbedding(nn.Embedding):
     """
 
     def __init__(self, n_classes: int, n_dims: int, n_audio_chans: int):
-        super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
+        # padding: see gh issue #3
+        super().__init__(n_classes, n_dims, padding_idx=0)
 
     def forward(self, y):
         N, C, W = y.shape
@@ -258,22 +257,42 @@ def reset_parameters(m: Wavenet):
 
     @torch.no_grad()
     def init(layer):
+
         if type(layer) == InputEmbedding:
+            print('normalising input embeddings')
             layer.weight.normal_(0, 1)
-        if type(layer) in [ShiftedCausal1d, nn.Conv1d]:
-            n_out, n_in, *_ = layer.weight.shape
-            layer.weight.normal_(0, math.sqrt(1.5 / n_in))
-            layer.bias.zero_()
+
+        if type(layer) == Conv1d:
+            if layer.causal and layer.shifted:
+                print('normalising causal shifted conv1d')
+                c_out, c_in, k = dims(layer)
+                layer.weight.normal_(0, math.sqrt(2 / (k * c_in)))
+                if not m.cfg.batch_norm:
+                    layer.bias.zero_()
+            else:
+                print('normalising conv1d')
+                c_out, c_in, k = dims(layer)
+                layer.weight.normal_(0, math.sqrt(2 / (k * c_out)))
+                if not m.cfg.batch_norm:
+                    layer.bias.zero_()
+
         if type(layer) == ResBlock:
-            n_out, n_in, *_ = layer.conv.weight.shape
-            n_half_in = n_in // 2
-            linear = layer.conv.weight[:, :n_half_in]
-            sigmoid = layer.conv.weight[:, n_half_in:]
-            linear.normal_(0, math.sqrt(1 / n_half_in))
-            sigmoid.normal_(0, math.sqrt(12.96 / n_half_in))
-            layer.conv.bias.zero_()
-            init(layer.res1x1)
-            init(layer.skip1x1)
+            print('normalising resblock')
+            c_out, c_in, k = dims(layer.conv)
+            layer.conv.weight.normal_(0, math.sqrt(2 / (k * c_in)))
+            c_out, c_in, k = dims(layer.res1x1)
+            layer.res1x1.weight.normal_(0, math.sqrt(1 / (k * c_in)))
+            c_out, c_in, k = dims(layer.skip1x1)
+            layer.skip1x1.weight.normal_(0, math.sqrt(1 / (k * c_in)))
+            if not m.cfg.batch_norm:
+                layer.conv.bias.zero_()
+                layer.res1x1.bias.zero_()
+                layer.skip1x1.bias.zero_()
+
+    def dims(c: nn.Conv1d):
+        k, *_ = c.kernel_size
+        c_out, c_in, *_ = c.weight.shape
+        return c_out, c_in, k
 
     for layer in m.children():
         if type(layer) == nn.ModuleList:
