@@ -74,10 +74,9 @@ class Wavenet(nn.Module):
 
             x = F.relu(self.shifted(x))  # N, C, W
             skips = 0
-            n_skips = len(self.layers)
             for block in self.layers:
                 x, s = block(x)
-                skips += s / n_skips
+                skips += s
 
             # normalise
             x = F.relu(skips)
@@ -179,22 +178,35 @@ def reset_parameters(m: Wavenet):
 
     @torch.no_grad()
     def init(layer):
+
         if type(layer) == InputEmbedding:
             layer.weight.normal_(0, 1)
-        if type(layer) in [ShiftedCausal1d, nn.Conv1d]:
-            n_out, n_in, *_ = layer.weight.shape
-            layer.weight.normal_(0, math.sqrt(1.5 / n_in))
+
+        if type(layer) == ShiftedCausal1d:
+            c_out, c_in, k = dims(layer)
+            layer.weight.normal_(0, math.sqrt(2 / (k * c_in)))
             layer.bias.zero_()
+
         if type(layer) == ResBlock:
-            n_out, n_in, *_ = layer.conv.weight.shape
-            n_half_in = n_in // 2
-            linear = layer.conv.weight[:, :n_half_in]
-            sigmoid = layer.conv.weight[:, n_half_in:]
-            linear.normal_(0, math.sqrt(1 / n_half_in))
-            sigmoid.normal_(0, math.sqrt(12.96 / n_half_in))
+            c_out, c_in, k = dims(layer.conv)
+            layer.conv.weight.normal_(0, math.sqrt(3 / (k * c_in)))
             layer.conv.bias.zero_()
-            init(layer.res1x1)
-            init(layer.skip1x1)
+            c_out, c_in, k = dims(layer.conv)
+            layer.res1x1.weight.normal_(0, math.sqrt(1 / (16 * k * c_in)))
+            layer.res1x1.bias.zero_()
+            c_out, c_in, k = dims(layer.conv)
+            layer.skip1x1.weight.normal_(0, math.sqrt(1 / (k * c_in)))
+            layer.skip1x1.bias.zero_()
+
+        if type(layer) == nn.Conv1d:
+            c_out, c_in, k = dims(layer)
+            layer.weight.normal_(0, math.sqrt(2 / (k * c_out)))
+            layer.bias.zero_()
+
+    def dims(c: nn.Conv1d):
+        k, *_ = c.kernel_size
+        c_out, c_in, *_ = c.weight.shape
+        return c_out, c_in, k
 
     for layer in m.children():
         if type(layer) == nn.ModuleList:
