@@ -34,15 +34,11 @@ class Trainer:
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
         utils.init_wandb(model, cfg, repr(self.trainset))
 
-    def checkpoint(self, name):
+    def checkpoint(self, name, epoch):
         base = wandb.run.dir if wandb.run.dir != "/" else "."
         filename = os.path.join(base, self.cfg.ckpt_path(name))
-        torch.save(self._model().state_dict(), filename)
+        torch.save(self._state(epoch), filename)
         wandb.save(filename, base_path=base)
-
-    def _model(self):
-        is_data_paralell = hasattr(self.model, "module")
-        return self.model.module if is_data_paralell else self.model
 
     def train(self):
         model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
@@ -110,14 +106,36 @@ class Trainer:
             train_loss = run_epoch("train")
             if train_loss < best["train"]:
                 best["train"] = train_loss
-                self.checkpoint("best.train")
+                self.checkpoint("best.train", epoch)
 
             if self.testset is not None:
                 test_loss = run_epoch("test")
                 utils.log_wandb("test loss", test_loss)
                 if test_loss < best["test"]:
                     best["test"] = test_loss
-                    self.checkpoint("best.test")
+                    self.checkpoint("best.test", epoch)
+
+    def restore(self, run_path, kind='train'):
+        chkpt = utils.wandb_restore(f"checkpoints.{kind}", run_path)
+        state_dict = torch.load(chkpt.name)
+        self._model().load_state_dict(state_dict["model"])
+        self.optimizer.load_state_dict(state_dict["optimizer"])
+        self.scaler.load_state_dict(state_dict["scaler"])
+        self.schedule.load_state_dict(state_dict["schedule"])
+        return state_dict["epoch"]
+
+    def _model(self):
+        is_data_paralell = hasattr(self.model, "module")
+        return self.model.module if is_data_paralell else self.model
+
+    def _state(self, epoch):
+        return {
+            'model': self._model().state_dict(),
+            'optimizer': self.optimizer.state_dict(),
+            'scaler': self.scaler.state_dict(),
+            'schedule': self.schedule.state_dict(),
+            'epoch': epoch
+        }
 
 
 class HParams(utils.HParams):
