@@ -21,7 +21,7 @@ def fast(
 ):
     "Process one sample at a time with a utils.decode_* decoder function."
     device = m.cfg.sampling_device()
-    g = Generator(m).to(device)
+    g = Generator(m.eval()).to(device).eval()
     shape = (batch_size, m.cfg.n_audio_chans, 1)
     x = torch.zeros(shape, dtype=torch.float).to(device)
     y = torch.zeros(shape, dtype=torch.long).to(device)
@@ -48,7 +48,7 @@ def simple(
 ):
     "Naïve sampling loop"
     device = m.cfg.sampling_device()
-    m = m.to(device)
+    m = m.eval().to(device)
     shape = (batch_size, m.cfg.n_audio_chans, n_samples)
     x = torch.zeros(shape, dtype=torch.float).to(device) + tf.mean
     y = torch.zeros(shape, dtype=torch.long).to(device)
@@ -99,7 +99,7 @@ class ResBlock(model.ResBlock):
 
 
 class Memo(nn.Module):
-    """Memoize a dilated model.Causal1d.
+    """Memoize a dilated model.Conv1d.
 
     Can memoize a single past value, an arbitrary number of steps back. This
     is enough to implement a conv1d with a kernel size of two. The queue depth
@@ -113,15 +113,15 @@ class Memo(nn.Module):
     implement this with a non-dilated convolution here.
 
     Memo is implemented with a circular queue. To support the initial
-    ShiftedCausal1d, we also have to delay inputs by one timestep. This is
+    shifted causal 1d, we also have to delay inputs by one timestep. This is
     implemented with a second queue.
 
     Arguments
     ---------
-    c: nnConv1d the convolution being memoized
+    c: model.Conv1d the convolution being memoized
     """
 
-    def __init__(self, c: model.Causal1d):
+    def __init__(self, c: model.Conv1d):
         super().__init__()
         assert c.kernel_size[0] == 2, c.kernel_size
         self.c = to_conv1d(c)
@@ -140,9 +140,11 @@ class Memo(nn.Module):
         return torch.cat([memo, x], -1)
 
 
-def to_conv1d(x: nn.Conv1d):
+def to_conv1d(x: model.Conv1d):
     "Convert to non causal conv1d without padding or dilation"
-    y = nn.Conv1d(x.in_channels, x.out_channels, x.kernel_size[0])
+    y = model.Conv1d(
+        x.in_channels, x.out_channels, x.kernel_size[0], relu=x.relu, bn=x.bn
+    )
     with torch.no_grad():
         y.weight.copy_(x.weight)  # type: ignore
         y.bias.copy_(x.bias)  # type: ignore
