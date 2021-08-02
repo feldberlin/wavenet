@@ -13,7 +13,7 @@ def test_generator_init():
 
 def test_to_conv_1d():
     x = torch.rand((1, 10, 10))
-    c = nn.Conv1d(10, 20, 2)
+    c = model.Conv1d(10, 20, 2)
     c_prime = sample.to_conv1d(c)
     assert torch.all(c(x) == c_prime(x))
 
@@ -135,7 +135,7 @@ def test_memoed_causal1d():
     N, C, W = (1, 1, 8)
     dilation = 1
     kernel_size = 2
-    conv = model.Causal1d(1, 1, kernel_size, dilation=dilation)
+    conv = model.Conv1d(1, 1, kernel_size, causal=True, dilation=dilation)
 
     # with a kernel size 2, you have to remember 1 past input element. this is
     # combined with the current element in order to compute the output.
@@ -165,7 +165,7 @@ def test_memoed_causal1d_dilated():
     N, C, W = (1, 1, 8)
     dilation = 2
     kernel_size = 2
-    conv = model.Causal1d(1, 1, kernel_size, dilation=dilation)
+    conv = model.Conv1d(1, 1, kernel_size, causal=True, dilation=dilation)
 
     # with a kernel size 2, you have to remember 1 past input element. this is
     # combined with the current element in order to compute the output.
@@ -197,7 +197,9 @@ def test_memoed_shifted_causal1d():
     N, C, W = (1, 1, 8)
     dilation = 1
     kernel_size = 2
-    conv = model.ShiftedCausal1d(1, 1, kernel_size, dilation=dilation)
+    conv = model.Conv1d(
+        1, 1, kernel_size, shifted=True, causal=True, dilation=dilation
+    )
 
     # the  expected behavior
     x = torch.rand((N, C, W))
