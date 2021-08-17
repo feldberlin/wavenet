@@ -7,14 +7,40 @@ import os
 import typing
 from collections import defaultdict
 
+from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm  # type: ignore
 import numpy as np  # type: ignore
 import torch
 import torch.cuda.amp as amp
-from torch.utils.data.dataloader import DataLoader
-from tqdm import tqdm  # type: ignore
+import torch.multiprocessing as mp
+import torch.nn.parallel as parallel
 
 import wandb  # type: ignore
 from wavenet import utils
+
+
+class DistributedTrainer()
+    "Single machine multi gpu training"
+
+    def train():
+        mp.set_start_method('forkserver')
+        ngpus = torch.cuda.device_count()
+        port = np.random.randint(15000, 15025)
+        mp.spawn(worker, nprocs=ngpus, args=(ngpus, port))
+
+    def setup(cfg, rank, world_size, port):
+        cfg.batch_size = int(cfg.batch_size / world_size)
+        cfg.num_workers = int((cfg.num_workers + world_size - 1) / world_size)
+        torch.cuda.set_device(rank)
+        dist.init_process_group(
+            torch.distributed.Backend.NCCL,
+            init_method=f"tcp://127.0.0.1:{port}",
+            world_size=world_size,
+            rank=rank
+        )
+
+    def teardown():
+        dist.destroy_process_group()
 
 
 class Trainer:
@@ -28,17 +54,12 @@ class Trainer:
         self.model_cfg = model.cfg
         self.callback = callback
         self.device = self.model_cfg.device()
-        self.model = torch.nn.DataParallel(self.model).to(self.device)
+        self.model = self.model.to(self.device)
+        self.model = parallel.DistributedDataParallel(self.model)
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
         self.optimizer = self.cfg.optimizer(self.model)
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
         self.metrics = utils.init_wandb(model, cfg, repr(self.trainset))
-
-    def checkpoint(self, name, epoch):
-        base = wandb.run.dir if wandb.run.dir != "/" else "."
-        filename = os.path.join(base, self.cfg.ckpt_path(name))
-        torch.save(self._state(epoch), filename)
-        wandb.save(filename, base_path=base)
 
     def train(self):
         model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
@@ -121,7 +142,13 @@ class Trainer:
                     best["test"] = test_loss
                     self.checkpoint("best.test", epoch)
 
-    def restore(self, run_path, kind="train"):
+    def checkpoint(self, name, epoch):
+        base = wandb.run.dir if wandb.run.dir != "/" else "."
+        filename = os.path.join(base, self.cfg.ckpt_path(name))
+        torch.save(self._state(epoch), filename)
+        wandb.save(filename, base_path=base)
+
+    def restore(self, run_path, kind='train'):
         chkpt = utils.wandb_restore(f"checkpoints.{kind}", run_path)
         state_dict = torch.load(chkpt.name)
         self._model().load_state_dict(state_dict["model"])
