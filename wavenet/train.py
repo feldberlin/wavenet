@@ -7,11 +7,13 @@ import os
 import typing
 from collections import defaultdict
 
+from torch.utils.data.dataloader import DataLoader
+from tqdm import tqdm  # type: ignore
 import numpy as np  # type: ignore
 import torch
 import torch.cuda.amp as amp
-from torch.utils.data.dataloader import DataLoader
-from tqdm import tqdm  # type: ignore
+import torch.multiprocessing as mp
+import torch.nn.parallel as parallel
 
 import wandb  # type: ignore
 from wavenet import utils
@@ -28,7 +30,13 @@ class Trainer:
         self.model_cfg = model.cfg
         self.callback = callback
         self.device = self.model_cfg.device()
-        self.model = torch.nn.DataParallel(self.model).to(self.device)
+        self.model = parallel.DistributedDataParallel(
+            model,
+            device_ids=[args.gpu],
+            output_device=self.device,
+            find_unused_parameters=True)
+
+        self.model = self.model.to(self.device)
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
         self.optimizer = self.cfg.optimizer(self.model)
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
