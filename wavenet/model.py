@@ -28,7 +28,10 @@ class Wavenet(nn.Module):
         # embed inputs. not documented in the wavenet paper, see gh issue #2
         if cfg.embed_inputs:
             self.embed = InputEmbedding(
-                cfg.n_classes, cfg.n_chans_embed, bn=cfg.batch_norm
+                cfg.n_classes,
+                cfg.n_chans_embed,
+                cfg.n_audio_chans,
+                bn=cfg.batch_norm,
             )
 
         # hide the present time step t in the input
@@ -120,11 +123,13 @@ class InputEmbedding(nn.Embedding):
     In the output, the channel is the embedding dimension.
     """
 
-    def __init__(self, n_classes: int, n_dims: int, bn: bool = False):
+    def __init__(
+        self, n_classes: int, n_dims: int, n_audio_chans: int, bn: bool = False
+    ):
         super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
         self.bn = bn
         if bn:
-            self.norm = nn.BatchNorm1d(n_dims)
+            self.norm = nn.BatchNorm1d(n_audio_chans * n_dims)
 
     def forward(self, y):
         N, C, W = y.shape

@@ -10,8 +10,8 @@ from wavenet import datasets, model, utils
 
 
 def test_input_embedding_mono():
-    n_classes, n_chans_embed = 2, 3
-    embedding = model.InputEmbedding(n_classes, n_chans_embed)
+    n_classes, n_chans_embed, n_audio_chans = 2, 3, 1
+    embedding = model.InputEmbedding(n_classes, n_chans_embed, n_audio_chans)
     y = torch.tensor([[[1, 0]], [[0, 1]]])
 
     # sanity
@@ -29,8 +29,8 @@ def test_input_embedding_mono():
 
 
 def test_input_embedding_stereo():
-    n_classes, n_chans_embed = 2, 3
-    embedding = model.InputEmbedding(n_classes, n_chans_embed)
+    n_classes, n_chans_embed, n_audio_chans = 2, 3, 2
+    embedding = model.InputEmbedding(n_classes, n_chans_embed, n_audio_chans)
     y = torch.tensor([[[1, 0], [0, 1]], [[0, 1], [0, 0]]])
 
     # sanity example 1
@@ -154,6 +154,22 @@ def test_wavenet_modules_registered_input_embedded():
     assert got == want
 
 
+# batchnorm
+
+
+@pytest.mark.parametrize("embed_inputs", [True, False])
+def test_wavenet_batchnorm_output_shape(embed_inputs):
+    p = model.HParams(embed_inputs=embed_inputs, batch_norm=True)
+    m = model.Wavenet(p)
+    y = torch.randint(p.n_classes, (3, p.n_audio_chans, 4))
+    x = y.float()
+    y_hat, _ = m.forward(x, y)
+    assert y_hat.shape == (3, p.n_classes, p.n_audio_chans, 4)
+
+
+# jacobians
+
+
 def test_logit_jacobian_first_sample():
     p = model.HParams()
     X = datasets.StereoImpulse(1, 1, p)
@@ -264,6 +280,9 @@ def test_loss_jacobian_full_receptive_field(embed_inputs):
     expected = torch.zeros_like(receptive_field)
     expected[-p.receptive_field_size() :] = 1
     assert expected.ne(0.0).equal(receptive_field.ne(0.0))
+
+
+# integration tests
 
 
 @pytest.mark.integration
