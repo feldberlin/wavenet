@@ -30,8 +30,7 @@ class Wavenet(nn.Module):
             self.embed = InputEmbedding(
                 cfg.n_classes,
                 cfg.n_chans_embed,
-                cfg.n_audio_chans,
-                bn=cfg.batch_norm,
+                cfg.n_audio_chans
             )
 
         # hide the present time step t in the input
@@ -124,21 +123,15 @@ class InputEmbedding(nn.Embedding):
     """
 
     def __init__(
-        self, n_classes: int, n_dims: int, n_audio_chans: int, bn: bool = False
+        self, n_classes: int, n_dims: int, n_audio_chans: int
     ):
         super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
-        self.bn = bn
-        if bn:
-            self.norm = nn.BatchNorm1d(n_audio_chans * n_dims)
 
     def forward(self, y):
         N, C, W = y.shape
         y = super().forward(y)  # embed into N, C, W, H=embedding_dim
         y = y.permute(0, 1, 3, 2)  # N, C, H, W
-        y = torch.reshape(y, (N, self.embedding_dim * C, W))  # fold stereo
-        if self.bn:
-            y = self.norm(y)
-        return y
+        return torch.reshape(y, (N, self.embedding_dim * C, W))  # fold stereo
 
 
 class Conv1d(nn.Conv1d):
@@ -308,14 +301,14 @@ class HParams(utils.HParams):
 
     # channel depth used in the residual branch of each res blocks. affects
     # the capacity of the conv and gating part in each resblock.
-    n_chans_res: int = 128
+    n_chans_res: int = 96
 
     # final 1x1 convs at the very end of the network. use to reduce from
     # `n_chans_skip` capacity, down towards `n_classes`.
     n_chans_end: int = 256
 
     # random seed
-    seed: int = 5762
+    seed: int = 5763
 
     # run the generator on gpus
     sample_from_gpu: bool = True

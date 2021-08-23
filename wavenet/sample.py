@@ -30,7 +30,7 @@ def fast(
             track = []
             probabilities = []
             for i in range(n_samples):
-                logits, _ = g.forward(x, y)  # N, K, C, W=1
+                logits, _ = g(x, y)  # N, K, C, W=1
                 probabilities.append(logits)
                 y = decoder(logits)  # N, C, W=1
                 x = tf.normalise(y)  # N, C, W=1
@@ -143,11 +143,17 @@ class Memo(nn.Module):
 def to_conv1d(x: model.Conv1d):
     "Convert to non causal conv1d without padding or dilation"
     y = model.Conv1d(
-        x.in_channels, x.out_channels, x.kernel_size[0], relu=x.relu, bn=x.bn
+        x.in_channels, x.out_channels, x.kernel_size[0], relu=x.relu, bn=x.bn,
     )
     with torch.no_grad():
         y.weight.copy_(x.weight)  # type: ignore
-        y.bias.copy_(x.bias)  # type: ignore
+        if not x.bn:
+            y.bias.copy_(x.bias)  # type: ignore
+        else:
+            y.norm.weight.copy_(x.norm.weight)  # type: ignore
+            y.norm.bias.copy_(x.norm.bias)  # type: ignore
+            y.norm.running_mean.copy_(x.norm.running_mean)  # type: ignore
+            y.norm.running_var.copy_(x.norm.running_var)  # type: ignore
         return y
 
 
