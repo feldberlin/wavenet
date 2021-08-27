@@ -3,4 +3,4 @@
 # Train by running a notebook
 
 source .venv/bin/activate
-papermill --log-output "$1" experiment-$(date +%s).ipynb
+papermill --log-output "$1" experiment-$(date +%s).ipynb "${@:2}"
