@@ -13,7 +13,7 @@ def test_generator_init():
 
 def test_to_conv_1d():
     x = torch.rand((1, 10, 10))
-    c = nn.Conv1d(10, 20, 2)
+    c = model.Conv1d(10, 20, 2)
     c_prime = sample.to_conv1d(c)
     assert torch.all(c(x) == c_prime(x))
 
@@ -80,7 +80,8 @@ def test_many_samples_with_embedding():
     assert track.shape == (1, m.cfg.n_audio_chans, 50)
 
 
-def test_one_logit_generator_vs_wavenet():
+@pytest.mark.parametrize("batch_norm", [True, False])
+def test_one_logit_generator_vs_wavenet(batch_norm):
     p = model.HParams(
         mixed_precision=False,
         n_audio_chans=1,
@@ -88,12 +89,13 @@ def test_one_logit_generator_vs_wavenet():
         n_chans=32,
         dilation_stacks=1,
         n_layers=6,
+        batch_norm=batch_norm,
         compress=False,
     )
 
-    m = model.Wavenet(p)
-    g = sample.Generator(m)
-    x = torch.rand((1, m.cfg.n_audio_chans, 1))
+    m = model.Wavenet(p).eval()
+    g = sample.Generator(m).eval()
+    x = torch.rand((10, m.cfg.n_audio_chans, 1))  # don't bn with batch size 1
 
     # forward pass through original with a single example
     ym, _ = m.forward(x)
@@ -135,7 +137,7 @@ def test_memoed_causal1d():
     N, C, W = (1, 1, 8)
     dilation = 1
     kernel_size = 2
-    conv = model.Causal1d(1, 1, kernel_size, dilation=dilation)
+    conv = model.Conv1d(1, 1, kernel_size, causal=True, dilation=dilation)
 
     # with a kernel size 2, you have to remember 1 past input element. this is
     # combined with the current element in order to compute the output.
@@ -165,7 +167,7 @@ def test_memoed_causal1d_dilated():
     N, C, W = (1, 1, 8)
     dilation = 2
     kernel_size = 2
-    conv = model.Causal1d(1, 1, kernel_size, dilation=dilation)
+    conv = model.Conv1d(1, 1, kernel_size, causal=True, dilation=dilation)
 
     # with a kernel size 2, you have to remember 1 past input element. this is
     # combined with the current element in order to compute the output.
@@ -197,7 +199,9 @@ def test_memoed_shifted_causal1d():
     N, C, W = (1, 1, 8)
     dilation = 1
     kernel_size = 2
-    conv = model.ShiftedCausal1d(1, 1, kernel_size, dilation=dilation)
+    conv = model.Conv1d(
+        1, 1, kernel_size, shifted=True, causal=True, dilation=dilation
+    )
 
     # the  expected behavior
     x = torch.rand((N, C, W))
@@ -218,31 +222,45 @@ def test_memoed_shifted_causal1d():
     assert torch.allclose(want, got)
 
 
-@pytest.mark.parametrize("n_audio_chans", [1, 2])
 @pytest.mark.parametrize("embed_inputs", [False, True])
-def test_many_logits_fast_vs_simple(embed_inputs, n_audio_chans):
+@pytest.mark.parametrize("n_audio_chans", [1, 2])
+@pytest.mark.parametrize("batch_norm", [True, False])
+def test_many_logits_fast_vs_simple(embed_inputs, n_audio_chans, batch_norm):
+
     n_samples, n_examples = 100, 5
     p = model.HParams(
         mixed_precision=False,
         embed_inputs=embed_inputs,
         n_audio_chans=n_audio_chans,
         n_classes=20,
-        n_chans=16,
         dilation_stacks=1,
         n_layers=2,
+        batch_norm=batch_norm,
         compress=False,
         sample_length=n_samples,
         seed=135,
-        verbose=True,
-    )
+
+    ).with_all_chans(16)
 
     utils.seed(p)
     ds = datasets.Tiny(n_samples, n_examples)
-    m = model.Wavenet(p)
+    m = model.Wavenet(p).eval()
 
     def decoder(logits):
         utils.seed(p)
         return utils.decode_random(logits)
+
+    def jiggle(m):
+        if isinstance(m, nn.BatchNorm1d):
+            m.weight.data.fill_(1.1)
+            m.bias.data.fill_(0.1)
+            m.running_var.fill_(1.1)
+            m.running_mean.fill_(0.1)
+
+    if p.batch_norm:
+        # Make sure that we have something different to vanilla init. Negative
+        # test will otherwise not fail
+        m.apply(jiggle)
 
     # simple
     utils.seed(p)
@@ -261,31 +279,44 @@ def test_many_logits_fast_vs_simple(embed_inputs, n_audio_chans):
     assert torch.allclose(fast_logits, simple_logits)
 
 
-def test_many_logits_generator_vs_wavenet():
+@pytest.mark.parametrize("batch_norm", [True, False])
+@pytest.mark.parametrize("n_samples", [2, 20])
+def test_many_logits_generator_vs_wavenet(batch_norm, n_samples):
     """This test doesn't do any sampling. Instead we compare logits. On the
     wavenet, this can be done with a single forward pass. The generator only
     accepts a one sample input, so we have to generate that by passing through
     one piece of the input at a time while appending all the outputs.
     """
 
-    n_samples = 2
     p = model.HParams(
         mixed_precision=False,
         n_audio_chans=1,
         n_classes=16,
-        n_chans=32,
         dilation_stacks=1,
         n_layers=1,
+        batch_norm=batch_norm,
         compress=False,
-    )
+
+    ).with_all_chans(32)
 
     utils.seed(p)  # reset seeds and use deterministic mode
 
     # set up model and generator
-    m = model.Wavenet(p)
-    g = sample.Generator(m)
+    m = model.Wavenet(p).eval()
 
-    # a single forward pass through the wavenet
+    def jiggle(m):
+        if isinstance(m, nn.BatchNorm1d):
+            m.weight.data.fill_(1.1)
+            m.bias.data.fill_(0.1)
+            m.running_var.fill_(1.1)
+            m.running_mean.fill_(0.1)
+
+    if p.batch_norm:
+        # Make sure that we have something different to vanilla init. Negative
+        # test will otherwise not fail
+        m.apply(jiggle)
+
+    # a single forward pass through the wavenet.
     x = torch.rand((1, m.cfg.n_audio_chans, n_samples))
     ym, _ = m.forward(x)
 
@@ -293,6 +324,7 @@ def test_many_logits_generator_vs_wavenet():
     # have been output on a single forward pass of a random input. that's what
     # we see in the line above, for the underlying wavenet. the generator,
     # however, only processes a single sample at a time.
+    g = sample.Generator(m).eval()
     yg = None
     x = F.pad(x, (1, -1))
     for i in range(n_samples):

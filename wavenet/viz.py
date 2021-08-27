@@ -66,7 +66,7 @@ def plot_model_samples(
     "Plot samples drawn from a trained model."
 
     def generate(m, transforms, decoder):
-        _, track, *_ = sampler(
+        track, *_ = sampler(
             m, transforms, decoder, n_samples=n_samples, batch_size=batch_size
         )
 
