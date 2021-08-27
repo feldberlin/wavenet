@@ -32,7 +32,7 @@ class Trainer:
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
         self.optimizer = self.cfg.optimizer(self.model)
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
-        utils.init_wandb(model, cfg, repr(self.trainset))
+        self.metrics = utils.init_wandb(model, cfg, repr(self.trainset))
 
     def checkpoint(self, name, epoch):
         base = wandb.run.dir if wandb.run.dir != "/" else "."

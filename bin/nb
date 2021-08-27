@@ -2,4 +2,4 @@
 
 ulimit -n 4096
 source .venv/bin/activate
-jupyter lab
+jupyter notebook
