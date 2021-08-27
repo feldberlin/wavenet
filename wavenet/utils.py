@@ -148,12 +148,13 @@ def load_hparams(path):
 
 def init_wandb(model, train_cfg, dataset_name: str):
     "Start up wandb"
-    wandb.init(project=train_cfg.project_name)
+    project = wandb.init(project=train_cfg.project_name)
     wandb.config.update(cfgdict(model.cfg, train_cfg))
     wandb.config.update({"dataset": dataset_name})
     wandb.watch(model, log="all")
     if train_cfg.finder:
         wandb.config.update({"dataset": "lrfinder"})
+    return project
 
 
 def log_wandb(key, value: float):
