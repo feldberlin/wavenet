@@ -4,4 +4,4 @@ set -e
 
 export WANDB_MODE=disabled
 source .venv/bin/activate
-nbqa mypy wavenet notebooks/*.ipynb --ignore-missing-imports
+nbqa mypy wavenet notebooks/**/*.ipynb --ignore-missing-imports
