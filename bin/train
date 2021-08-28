@@ -2,5 +2,14 @@
 #
 # Train by running a notebook
 
+# name of the notebook to run
+TRAINING_NOTEBOOK="notebooks/train/${1}.ipynb"
+
+# name of the notebook to write resuts to
+OUTPUT_NOTEBOOK="notebooks/experiments/${1}-$(date +%s).ipynb"
+
+# setup env
 source .venv/bin/activate
-papermill --log-output "$1" experiment-$(date +%s).ipynb "${@:2}"
+
+# run the experiment
+papermill --log-output $TRAINING_NOTEBOOK $OUTPUT_NOTEBOOK "${@:2}"
