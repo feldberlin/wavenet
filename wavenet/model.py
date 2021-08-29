@@ -317,7 +317,7 @@ class HParams(utils.HParams):
     use_deterministic_algorithms: bool = False
 
     # use batch norm layers
-    batch_norm = False
+    batch_norm: bool = False
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
