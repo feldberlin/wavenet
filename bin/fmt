@@ -1,4 +1,5 @@
 #!/bin/bash
 
+source .venv/bin/activate
 black --line-length 80 **/*.py
 isort **/*.py

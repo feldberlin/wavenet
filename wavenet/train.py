@@ -32,7 +32,7 @@ class Trainer:
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
         self.optimizer = self.cfg.optimizer(self.model)
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
-        utils.init_wandb(model, cfg, repr(self.trainset))
+        self.metrics = utils.init_wandb(model, cfg, repr(self.trainset))
 
     def checkpoint(self, name, epoch):
         base = wandb.run.dir if wandb.run.dir != "/" else "."
@@ -115,7 +115,7 @@ class Trainer:
                     best["test"] = test_loss
                     self.checkpoint("best.test", epoch)
 
-    def restore(self, run_path, kind='train'):
+    def restore(self, run_path, kind="train"):
         chkpt = utils.wandb_restore(f"checkpoints.{kind}", run_path)
         state_dict = torch.load(chkpt.name)
         self._model().load_state_dict(state_dict["model"])
@@ -130,11 +130,11 @@ class Trainer:
 
     def _state(self, epoch):
         return {
-            'model': self._model().state_dict(),
-            'optimizer': self.optimizer.state_dict(),
-            'scaler': self.scaler.state_dict(),
-            'schedule': self.schedule.state_dict(),
-            'epoch': epoch
+            "model": self._model().state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "scaler": self.scaler.state_dict(),
+            "schedule": self.schedule.state_dict(),
+            "epoch": epoch,
         }
 
 
