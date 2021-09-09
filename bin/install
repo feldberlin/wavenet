@@ -2,6 +2,8 @@
 #
 # Run this once to install the dev environment.
 
+set -e
+
 usage() {
   echo Install venv. Run without args to install. Args:
   echo "  --help|-h                   Help"
@@ -39,6 +41,5 @@ fi
 
 # install deps
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install -r requirements.dev.txt
-pip install --upgrade numpy
+pip install --upgrade pip wheel
+pip install -r requirements.all.pin
