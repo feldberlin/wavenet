@@ -43,6 +43,9 @@ class Trainer:
     def train(self):
         model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
 
+        # see gh #21
+        torch.backends.cudnn.benchmark = True
+
         def run_epoch(split):
             is_train = split == "train"
             model.train(is_train)
@@ -74,7 +77,10 @@ class Trainer:
                         losses.append(loss.item())
 
                 if is_train:
-                    model.zero_grad()
+                    # see gh #21
+                    for param in model.parameters():
+                        param.grad = None
+
                     self.scaler.scale(loss).backward()
                     if cfg.grad_norm_clip is not None:
                         torch.nn.utils.clip_grad_norm_(
