@@ -5,4 +5,3 @@ set -e
 export WANDB_MODE=disabled
 source .venv/bin/activate
 python -m pytest -m "integration" "$@"
-bin/test-notebooks

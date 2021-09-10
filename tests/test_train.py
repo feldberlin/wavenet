@@ -31,6 +31,24 @@ def test_hparams_nsteps_last_batch_small():
     assert tp.n_steps(trainset_size) == 8
 
 
+def test_state():
+    m = model.Wavenet(model.HParams())
+    t = train.Trainer(m, [1, 2, 3], [1, 2], train.HParams())
+    state = t.state()
+    assert "model" in state
+    assert "optimizer" in state
+    assert "scaler" in state
+    assert "schedule" in state
+    assert "epoch" in state
+
+
+def test_load_state():
+    m = model.Wavenet(model.HParams())
+    t = train.Trainer(m, [1, 2, 3], [1, 2], train.HParams())
+    state = t.state()
+    t.load_state(state)
+
+
 @pytest.mark.integration
 def test_learn_bimodally_distributed_stereo_at_t0():
     p = model.HParams().with_all_chans(2)
