@@ -28,9 +28,7 @@ class Wavenet(nn.Module):
         # embed inputs. not documented in the wavenet paper, see gh issue #2
         if cfg.embed_inputs:
             self.embed = InputEmbedding(
-                cfg.n_classes,
-                cfg.n_chans_embed,
-                cfg.n_audio_chans
+                cfg.n_classes, cfg.n_chans_embed, cfg.n_audio_chans
             )
 
         # hide the present time step t in the input
@@ -122,9 +120,7 @@ class InputEmbedding(nn.Embedding):
     In the output, the channel is the embedding dimension.
     """
 
-    def __init__(
-        self, n_classes: int, n_dims: int, n_audio_chans: int
-    ):
+    def __init__(self, n_classes: int, n_dims: int, n_audio_chans: int):
         super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
 
     def forward(self, y):
@@ -266,6 +262,9 @@ class HParams(utils.HParams):
 
     # length of a single track in samples
     sample_length: int = 16000
+
+    # length of the offset between two examples in the audio
+    sample_hop_length = 16000
 
     # stereo, mono
     n_audio_chans: int = 2

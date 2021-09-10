@@ -57,7 +57,9 @@ def resample(y: np.array, input_sr: int, p):
 
 def frame(y, p):
     "Cut frames from a single track"
-    y = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2 ** 13)
+    y = librosa.util.frame(
+        y, frame_length=p.sample_length, hop_length=p.sample_hop_length
+    )
     y = np.expand_dims(y, axis=0) if y.ndim == 2 else y  # mono case
     return y
 

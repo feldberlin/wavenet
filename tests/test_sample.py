@@ -239,7 +239,6 @@ def test_many_logits_fast_vs_simple(embed_inputs, n_audio_chans, batch_norm):
         compress=False,
         sample_length=n_samples,
         seed=135,
-
     ).with_all_chans(16)
 
     utils.seed(p)
@@ -296,7 +295,6 @@ def test_many_logits_generator_vs_wavenet(batch_norm, n_samples):
         n_layers=1,
         batch_norm=batch_norm,
         compress=False,
-
     ).with_all_chans(32)
 
     utils.seed(p)  # reset seeds and use deterministic mode
