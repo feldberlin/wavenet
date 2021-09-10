@@ -1,7 +1,7 @@
 ---
 name: Reproduction
 about: The network can reproduce previous results
-labels: 'reproduction'
+labels: 'reproduction, experiment'
 
 ---
 
