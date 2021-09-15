@@ -143,7 +143,11 @@ class Memo(nn.Module):
 def to_conv1d(x: model.Conv1d):
     "Convert to non causal conv1d without padding or dilation"
     y = model.Conv1d(
-        x.in_channels, x.out_channels, x.kernel_size[0], relu=x.relu, bn=x.bn,
+        x.in_channels,
+        x.out_channels,
+        x.kernel_size[0],
+        relu=x.relu,
+        bn=x.bn,
     )
     with torch.no_grad():
         y.weight.copy_(x.weight)  # type: ignore

@@ -57,7 +57,9 @@ def resample(y: np.array, input_sr: int, p):
 
 def frame(y, p):
     "Cut frames from a single track"
-    y = librosa.util.frame(y, frame_length=p.sample_length, hop_length=2 ** 13)
+    y = librosa.util.frame(
+        y, frame_length=p.sample_length, hop_length=p.sample_hop_length()
+    )
     y = np.expand_dims(y, axis=0) if y.ndim == 2 else y  # mono case
     return y
 
@@ -70,6 +72,13 @@ def duration(path: Path, p) -> int:
         factor = p.sampling_rate / info.samplerate
         n_samples = math.floor(n_samples * factor)
     return n_samples
+
+
+def prune_duration(duration: int, p):
+    "Prune the duration so it can be framed into examples without a remainder."
+    duration = duration - p.sample_overlap_length
+    n_examples = math.floor(duration / p.sample_hop_length())
+    return n_examples * p.sample_hop_length() + p.sample_overlap_length
 
 
 # compression and quantisation

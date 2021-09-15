@@ -137,13 +137,12 @@ def trackmetas(
     p,
     tracks: typing.List[Path] = [],
 ) -> typing.List[TrackMeta]:
-    "Find tracks in a path and return path and duration metadata"
+    "Find tracks in a path and return path and duration metadata."
 
     def meta(path):
+        cache_key = cache / p.audio_cache_key() if cache else None
         duration = audio.duration(root / path, p)
-        n_examples = math.floor(duration / p.sample_length)
-        pruned = n_examples * p.sample_length
-        return TrackMeta(root, cache, path, pruned)
+        return TrackMeta(root, cache_key, path, duration)
 
     return [meta(path) for path in tracks or glob_tracks(root)]
 
@@ -173,54 +172,49 @@ class Tracks(Dataset):
        the cache location can be on a local ssd.
     """
 
-    def __init__(
-        self,
-        cfg,
-        root_dir: Path,
-        tracks: typing.List[TrackMeta],
-        cache_dir: typing.Optional[Path] = None,
-    ):
+    def __init__(self, cfg, root_dir: Path, tracks: typing.List[TrackMeta]):
         self.tf = AudioUnitTransforms(cfg)
         self.cfg = cfg
         self.root_dir = root_dir
         self.tracks = tracks
-        self.cache_dir = cache_dir
         self.n_samples_total = sum(t.duration for t in tracks)
+        self.n_examples = 0
 
-        # build an index of track to cumulative starting sample number
-        offset = 0
-        self.offsets = [offset]
+        # build an index of track to cumulative starting index dataset[idx]
+        self.offsets = [0]
         for t in tracks:
-            offset += t.duration
-            self.offsets.append(offset)
+            duration = t.duration - cfg.sample_overlap_length
+            self.n_examples += math.floor(duration / cfg.sample_hop_length())
+            self.offsets.append(self.n_examples)
 
     @staticmethod
     def from_dir(cfg, root_dir: Path, cache_dir: typing.Optional[Path] = None):
         "Build a dataset with all audio files under root_dir"
         metas = trackmetas(root_dir, cache_dir, cfg)
-        return Tracks(cfg, root_dir, metas, cache_dir)
+        return Tracks(cfg, root_dir, metas)
 
     @property
     def transforms(self):
         return self.tf
 
     def __len__(self):
-        return math.floor(self.n_samples_total / self.cfg.sample_length)
+        return self.n_examples
 
     def __getitem__(self, idx):
         "Get the given example index."
 
         @lru_cache()
-        def meta(dataset_offset):
+        def meta(example_idx):
             "get the correct (TrackMeta, track_offset) for this example idx"
             for i, _ in enumerate(self.offsets):
-                if dataset_offset < self.offsets[i]:
+                if example_idx < self.offsets[i]:
                     track = self.tracks[i - 1]
-                    track_offset = dataset_offset - self.offsets[i - 1]
+                    track_idx = example_idx - self.offsets[i - 1]
+                    track_offset = track_idx * self.cfg.sample_hop_length()
                     assert track_offset <= track.duration, track_offset
                     return track, track_offset
 
-        track, track_offset = meta(self.cfg.sample_length * idx)
+        track, track_offset = meta(idx)
         ys = self.cached_read(track, track_offset)
         ys = audio.quantise(ys, self.cfg)  # from [-1, 1] to [-n, n+1]
         x, y = self.tf(ys)
@@ -285,8 +279,8 @@ def maestro(
         )
 
     return (
-        Tracks(cfg, root_dir, metas("train"), cache_dir),
-        Tracks(cfg, root_dir, metas("test"), cache_dir),
+        Tracks(cfg, root_dir, metas("train")),
+        Tracks(cfg, root_dir, metas("test")),
     )
 
 
@@ -488,7 +482,6 @@ class Track(Dataset):
         ys = audio.frame(y, p)  # cut frames from single track
         ys = np.moveaxis(ys, -1, 0)  # reshape back to N, C, W
         ys = torch.tensor(ys, dtype=torch.float32)
-        ys = ys[1:, :, :]  # trim hoplength leading silence
         if p.compress:
             ys = audio.mu_compress_batch(ys, p)
         self.data = audio.quantise(ys, p)  # from [-1, 1] to [-n, n+1]

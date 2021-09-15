@@ -3,6 +3,7 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
 import copy
+import hashlib
 
 import torch
 import torch.cuda.amp as amp
@@ -28,9 +29,7 @@ class Wavenet(nn.Module):
         # embed inputs. not documented in the wavenet paper, see gh issue #2
         if cfg.embed_inputs:
             self.embed = InputEmbedding(
-                cfg.n_classes,
-                cfg.n_chans_embed,
-                cfg.n_audio_chans
+                cfg.n_classes, cfg.n_chans_embed, cfg.n_audio_chans
             )
 
         # hide the present time step t in the input
@@ -122,9 +121,7 @@ class InputEmbedding(nn.Embedding):
     In the output, the channel is the embedding dimension.
     """
 
-    def __init__(
-        self, n_classes: int, n_dims: int, n_audio_chans: int
-    ):
+    def __init__(self, n_classes: int, n_dims: int, n_audio_chans: int):
         super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
 
     def forward(self, y):
@@ -267,6 +264,12 @@ class HParams(utils.HParams):
     # length of a single track in samples
     sample_length: int = 16000
 
+    # length of the overlap between two examples in the audio
+    sample_overlap_length = 0
+
+    # set sample_overlap_length to self.receptive_field_size()
+    sample_overlap_receptive_field = False
+
     # stereo, mono
     n_audio_chans: int = 2
 
@@ -323,6 +326,9 @@ class HParams(utils.HParams):
         for k, v in kwargs.items():
             setattr(self, k, v)
 
+        if self.sample_overlap_receptive_field:
+            self.sample_overlap_length = self.receptive_field_size()
+
     def n_logits(self):
         return self.n_classes * self.n_audio_chans
 
@@ -341,6 +347,9 @@ class HParams(utils.HParams):
     def sample_size_ms(self):
         return 1000 * self.sample_length / self.sampling_rate
 
+    def sample_hop_length(self):
+        return self.sample_length - self.sample_overlap_length
+
     def device(self):
         if torch.cuda.is_available():
             return torch.device(torch.cuda.current_device())
@@ -350,6 +359,20 @@ class HParams(utils.HParams):
         if self.sample_from_gpu and torch.cuda.is_available():
             return torch.device(torch.cuda.current_device())
         return torch.device("cpu")
+
+    def audio_cache_key(self):
+        key = "/".join(
+            [
+                str(self.resample),
+                str(self.resampling_method),
+                str(self.squash_to_mono),
+                str(self.compress),
+                str(self.sample_length),
+                str(self.sample_overlap_length),
+                str(self.sampling_rate),
+            ]
+        )
+        return hashlib.md5(key.encode()).hexdigest()
 
     def with_all_chans(self, n_chans: int):
         "Set all channel parameters to the same value"
