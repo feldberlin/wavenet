@@ -367,8 +367,6 @@ class HParams(utils.HParams):
                 str(self.resampling_method),
                 str(self.squash_to_mono),
                 str(self.compress),
-                str(self.sample_length),
-                str(self.sample_overlap_length),
                 str(self.sampling_rate),
             ]
         )
