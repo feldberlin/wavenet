@@ -92,3 +92,11 @@ def test_checkpoint():
         t = train.Trainer(m, [1, 2, 3], [4, 5], tp)
         filename = tmp / "checkpoint"
         utils.checkpoint("test", t.state(), tp, filename)
+        state = torch.load(filename)
+        assert "model" in state
+        assert "optimizer" in state
+        assert "scaler" in state
+        assert "schedule" in state
+        assert "epoch" in state
+        assert "best" in state
+        t.load_state(state)

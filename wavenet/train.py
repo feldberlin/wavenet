@@ -40,6 +40,7 @@ class Trainer:
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
         self.optimizer = self.cfg.optimizer(utils.unwrap(model))
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
+        self.best = defaultdict(lambda: float("inf"))
         self.epoch = 0
         if log:
             self.metrics = utils.init_wandb(
@@ -55,9 +56,9 @@ class Trainer:
 
         def run_epoch(split):
             is_train = split == "train"
+            data = self.trainset if is_train else self.testset
             sampler = self.train_sampler if is_train else self.test_sampler
             model.train(is_train)
-            data = self.trainset if is_train else self.testset
 
             # must be called before data loader init
             if sampler:
@@ -123,19 +124,18 @@ class Trainer:
 
             return float(np.mean(losses))
 
-        best = defaultdict(lambda: float("inf"))
         for epoch in range(cfg.max_epochs):
             self.epoch = epoch
             train_loss = run_epoch("train")
-            if train_loss < best["train"]:
-                best["train"] = train_loss
+            if train_loss < self.best["train"]:
+                self.best["train"] = train_loss
                 self.checkpoint("best.train")
 
             if self.testset is not None:
                 test_loss = run_epoch("test")
                 self.logger("test loss", test_loss)
-                if test_loss < best["test"]:
-                    best["test"] = test_loss
+                if test_loss < self.best["test"]:
+                    self.best["test"] = test_loss
                     self.checkpoint("best.test")
 
     def logger(self, key, value):
@@ -153,6 +153,7 @@ class Trainer:
             "scaler": self.scaler.state_dict(),
             "schedule": self.schedule.state_dict(),
             "epoch": self.epoch,
+            "best": dict(self.best),
         }
 
     def load_state(self, state):
@@ -161,6 +162,11 @@ class Trainer:
         self.scaler.load_state_dict(state["scaler"])
         self.schedule.load_state_dict(state["schedule"])
         self.epoch = state["epoch"]
+        self.best = state["best"]
+
+    def finish(self):
+        if self.log:
+            self.metrics.finish()
 
 
 class HParams(utils.HParams):
@@ -189,6 +195,9 @@ class HParams(utils.HParams):
     # how many steps before the callback is invoked
     callback_fq: int = 8
 
+    # how many os process spaces is training split into
+    num_shards: int = 1
+
     # how many data loader threads to use
     num_workers: int = 0
 
@@ -209,12 +218,16 @@ class HParams(utils.HParams):
         return f"checkpoints.{name}"
 
     def n_steps(self, n_examples):
-        batch_size = min(n_examples, self.batch_size)
+        batch_size = min(n_examples, self.total_batch_size())
         return math.ceil(n_examples / batch_size) * self.max_epochs
 
-    def resize(self, percentage):
-        self.batch_size = int(self.batch_size * percentage)
-        self.num_workers = int(self.num_workers * percentage)
+    def shard(self, num_shards):
+        self.num_shards = num_shards
+        self.batch_size = int(self.batch_size / num_shards)
+        self.num_workers = int(self.num_workers / num_shards)
+
+    def total_batch_size(self):
+        return self.batch_size * self.num_shards
 
     def optimizer(self, model):
         return torch.optim.AdamW(

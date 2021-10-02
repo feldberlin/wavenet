@@ -367,7 +367,7 @@ class HParams(utils.HParams):
                 str(self.resampling_method),
                 str(self.squash_to_mono),
                 str(self.compress),
-                str(self.sampling_rate),
+                str(self.sampling_rate)
             ]
         )
         return hashlib.md5(key.encode()).hexdigest()

@@ -15,18 +15,16 @@ class DP:
     """Training loop with nn.DataParallel. One machine only."""
 
     def __init__(self, model, trainset, testset, cfg, log=True):
+        self.metrics = self.trainer.metrics if log else None
         self.trainer = train.Trainer(
             nn.DataParallel(model), trainset, testset, cfg, log
         )
-        self.log = log
-        if log:
-            self.metrics = self.trainer.metrics
 
     def train(self):
         self.trainer.train()
 
     def finish(self):
-        if self.log:
+        if self.metrics:
             self.metrics.finish()
 
 
@@ -41,10 +39,12 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
         rank=gpu,
     )
 
-    # configure the worker
-    leader = gpu == 0
+    # configure sharding
+    is_leader = gpu == 0
+    cfg.shard(ngpus)
+
+    # configure devices
     device = torch.device(gpu)
-    cfg.resize(1 / ngpus)
     model.cfg.device = device
     torch.cuda.set_device(device)
 
@@ -54,15 +54,6 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
         num_replicas=ngpus,
         rank=gpu,
         shuffle=True,
-        seed=cfg.seed,
-    )
-
-    # testset sampler for distributed training
-    test_sampler: data.Sampler = data.distributed.DistributedSampler(
-        testset,
-        num_replicas=ngpus,
-        rank=gpu,
-        shuffle=False,
         seed=cfg.seed,
     )
 
@@ -82,9 +73,8 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
         trainset,
         testset,
         cfg,
-        log=leader,
-        train_sampler=train_sampler,
-        test_sampler=test_sampler,
+        log=is_leader,
+        train_sampler=train_sampler
     )
 
     # don't forget to train
