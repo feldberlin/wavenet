@@ -18,11 +18,16 @@ class DP:
         self.trainer = train.Trainer(
             nn.DataParallel(model), trainset, testset, cfg, log
         )
+        self.log = log
         if log:
             self.metrics = self.trainer.metrics
 
     def train(self):
         self.trainer.train()
+
+    def finish(self):
+        if self.log:
+            self.metrics.finish()
 
 
 def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
@@ -43,12 +48,21 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
     model.cfg.device = device
     torch.cuda.set_device(device)
 
-    # set a sampler for distributed training
-    sampler: data.Sampler = data.distributed.DistributedSampler(
+    # trainset sampler for distributed training
+    train_sampler: data.Sampler = data.distributed.DistributedSampler(
         trainset,
         num_replicas=ngpus,
         rank=gpu,
         shuffle=True,
+        seed=cfg.seed,
+    )
+
+    # testset sampler for distributed training
+    test_sampler: data.Sampler = data.distributed.DistributedSampler(
+        testset,
+        num_replicas=ngpus,
+        rank=gpu,
+        shuffle=False,
         seed=cfg.seed,
     )
 
@@ -64,7 +78,13 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
 
     # configure a single trainer
     t = train.Trainer(
-        model, trainset, testset, cfg, log=leader, sampler=sampler
+        model,
+        trainset,
+        testset,
+        cfg,
+        log=leader,
+        train_sampler=train_sampler,
+        test_sampler=test_sampler,
     )
 
     # don't forget to train
@@ -99,5 +119,5 @@ class DDP:
             ),
         )
 
-    def teardown(self):
+    def finish(self):
         dist.destroy_process_group()

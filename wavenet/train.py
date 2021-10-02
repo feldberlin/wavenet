@@ -18,13 +18,23 @@ from wavenet import utils
 class Trainer:
     """Training loop."""
 
-    def __init__(self, model, trainset, testset, cfg, log=True, sampler=None):
+    def __init__(
+        self,
+        model,
+        trainset,
+        testset,
+        cfg,
+        log=True,
+        train_sampler=None,
+        test_sampler=None,
+    ):
         self.model = model
         self.trainset = trainset
         self.testset = testset
         self.cfg = cfg
         self.log = log
-        self.sampler = sampler
+        self.train_sampler = train_sampler
+        self.test_sampler = test_sampler
         self.model_cfg = utils.unwrap(model).cfg
         self.device = self.model_cfg.device
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
@@ -45,21 +55,22 @@ class Trainer:
 
         def run_epoch(split):
             is_train = split == "train"
+            sampler = self.train_sampler if is_train else self.test_sampler
             model.train(is_train)
             data = self.trainset if is_train else self.testset
 
-            if self.sampler:
-                # must be called before data loader init
-                self.sampler.set_epoch(self.epoch)
+            # must be called before data loader init
+            if sampler:
+                sampler.set_epoch(self.epoch)
 
             # loader
             loader = DataLoader(
                 data,
-                shuffle=not self.sampler,
+                shuffle=not sampler and not is_train,
                 pin_memory=True,
                 batch_size=cfg.batch_size,
                 num_workers=cfg.num_workers,
-                sampler=self.sampler,
+                sampler=sampler,
             )
 
             # progress

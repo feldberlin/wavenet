@@ -208,10 +208,7 @@ class Tracks(Dataset):
         @lru_cache()
         def meta(example_idx):
             "get the correct (TrackMeta, track_offset) for this example idx"
-            if example_idx < 0 or example_idx > len(self) - 1:
-                err = f'Invalid {example_idx} for len(ds) { len(self) }'
-                raise IndexError(err)
-
+            assert example_idx >= 0 and example_idx < len(self)
             for i, _ in enumerate(self.offsets):
                 if example_idx < self.offsets[i]:
                     track = self.tracks[i - 1]
@@ -219,9 +216,6 @@ class Tracks(Dataset):
                     track_offset = track_idx * self.cfg.sample_hop_length()
                     assert track_offset <= track.duration, track_offset
                     return track, track_offset
-
-            err = f'No meta: {example_idx}. { self.offsets }; { self.tracks }'
-            raise IndexError(err)
 
         track, track_offset = meta(idx)
         ys = self.cached_read(track, track_offset)
@@ -263,7 +257,7 @@ class Tracks(Dataset):
         attrs = {
             "path": str(self.root_dir),
             "n_examples": self.n_examples,
-            "n_seconds": self.cfg.sample_size_ms() * self.n_examples / 1000
+            "n_seconds": self.cfg.sample_size_ms() * self.n_examples / 1000,
         }
 
         return f"Tracks({ json.dumps(attrs, sort_keys=True) })"

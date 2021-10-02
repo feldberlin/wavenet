@@ -50,8 +50,8 @@ def test_load_state():
 
 
 def test_resize_cfg():
-    tp = train.HParams(batch_size=10, num_workers = 8)
-    tp.resize(1/2)
+    tp = train.HParams(batch_size=10, num_workers=8)
+    tp.resize(1 / 2)
     assert tp.batch_size == 5
     assert tp.num_workers == 4
 
