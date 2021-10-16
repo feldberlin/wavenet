@@ -25,7 +25,7 @@ def fast(
     shape = (batch_size, m.cfg.n_audio_chans, 1)
     x = torch.zeros(shape, dtype=torch.float).to(device)
     y = torch.zeros(shape, dtype=torch.long).to(device)
-    with torch.set_grad_enabled(False):
+    with torch.inference_mode(True):
         with amp.autocast(enabled=m.cfg.mixed_precision):
             track = []
             probabilities = []
@@ -52,7 +52,7 @@ def simple(
     shape = (batch_size, m.cfg.n_audio_chans, n_samples)
     x = torch.zeros(shape, dtype=torch.float).to(device) + tf.mean
     y = torch.zeros(shape, dtype=torch.long).to(device)
-    with torch.set_grad_enabled(False):
+    with torch.inference_mode(True):
         with amp.autocast(enabled=m.cfg.mixed_precision):
             probabilities = []
             for t in range(n_samples):
@@ -165,4 +165,4 @@ def load(run_path: str, kind: str = "best.test"):
     "Load config and model from wandb"
     p, ptrain = utils.load_wandb_cfg(run_path)
     p, ptrain = model.HParams(**p), train.HParams(**ptrain)
-    return utils.load_chkpt(model.Wavenet(p), run_path, kind), ptrain
+    return utils.restore(model.Wavenet(p), run_path, kind), ptrain

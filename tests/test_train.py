@@ -31,6 +31,55 @@ def test_hparams_nsteps_last_batch_small():
     assert tp.n_steps(trainset_size) == 8
 
 
+def test_state():
+    m = model.Wavenet(model.HParams())
+    t = train.Trainer(m, [1, 2, 3], [1, 2], train.HParams())
+    state = t.state()
+    assert "model" in state
+    assert "optimizer" in state
+    assert "scaler" in state
+    assert "schedule" in state
+    assert "epoch" in state
+    assert "best" in state
+
+
+def test_load_state():
+    m = model.Wavenet(model.HParams())
+    t = train.Trainer(m, [1, 2, 3], [1, 2], train.HParams())
+    state = t.state()
+    t.load_state(state)
+
+
+def test_shard_cfg():
+    tp = train.HParams(batch_size=10, num_workers=8)
+    tp.shard(2)
+    assert tp.batch_size == 5
+    assert tp.num_workers == 4
+    assert tp.num_shards == 2
+    assert tp.total_batch_size() == 10
+
+
+def test_sharded_learning_rate_schedule():
+    ds, ds_test = range(100), None
+    m = model.Wavenet(model.HParams().with_all_chans(2))
+    tp = train.HParams(batch_size=10, num_workers=8, max_epochs=1)
+    n_steps = int(len(ds) / tp.batch_size)
+
+    # unsharded schedule
+    t = train.Trainer(m, ds, ds_test, tp, log=False)
+    schedule = t.schedule
+
+    # sharded schedule
+    tp.shard(2)
+    t = train.Trainer(m, ds, ds_test, tp, log=False)
+    sharded_schedule = t.schedule
+
+    for i in range(n_steps):
+        schedule.step()
+        sharded_schedule.step()
+        assert schedule.get_last_lr() == sharded_schedule.get_last_lr()
+
+
 @pytest.mark.integration
 def test_learn_bimodally_distributed_stereo_at_t0():
     p = model.HParams().with_all_chans(2)

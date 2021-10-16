@@ -2,7 +2,6 @@
 Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
-import copy
 import hashlib
 
 import torch
@@ -74,7 +73,7 @@ class Wavenet(nn.Module):
 
         # load a checkpoint
         if run_path:
-            utils.load_chkpt(self, run_path)
+            utils.restore(self, run_path)
 
     def forward(self, x, y=None):
         """Audio is trained on (N, C, W) batches.
@@ -322,9 +321,15 @@ class HParams(utils.HParams):
     # use batch norm layers
     batch_norm: bool = False
 
+    # leader compute device
+    device: torch.device = torch.device("cpu")
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+        if torch.cuda.is_available():
+            self.device = torch.device(torch.cuda.current_device())
 
         if self.sample_overlap_receptive_field:
             self.sample_overlap_length = self.receptive_field_size()
@@ -350,11 +355,6 @@ class HParams(utils.HParams):
     def sample_hop_length(self):
         return self.sample_length - self.sample_overlap_length
 
-    def device(self):
-        if torch.cuda.is_available():
-            return torch.device(torch.cuda.current_device())
-        return torch.device("cpu")
-
     def sampling_device(self):
         if self.sample_from_gpu and torch.cuda.is_available():
             return torch.device(torch.cuda.current_device())
@@ -374,7 +374,7 @@ class HParams(utils.HParams):
 
     def with_all_chans(self, n_chans: int):
         "Set all channel parameters to the same value"
-        cfg = copy.copy(self)
+        cfg = self.clone()
         cfg.n_chans = n_chans
         cfg.n_chans_embed = n_chans
         cfg.n_chans_res = n_chans

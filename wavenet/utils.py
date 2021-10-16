@@ -1,3 +1,4 @@
+import copy
 import inspect
 import os
 import random
@@ -6,11 +7,10 @@ from pathlib import Path
 
 import numpy as np  # type: ignore
 import torch
+import wandb  # type: ignore
 import yaml
 from torch.nn import functional as F
 from torch.optim import lr_scheduler
-
-import wandb  # type: ignore
 
 # base directory that wandb restores old runs to.
 WANDB_RESTORE_DIR = Path("wandb") / "restore"
@@ -107,7 +107,14 @@ def lr_schedule(train_cfg, n_examples, optimizer):
 # lifecycle
 
 
-def load_chkpt(m, run_path, kind: str = "best.test"):
+def checkpoint(name, state, cfg, filename=None):
+    base = wandb.run.dir if wandb.run.dir != "/" else "."
+    filename = filename or os.path.join(base, cfg.ckpt_path(name))
+    torch.save(state, filename)
+    return wandb.save(filename, base_path=base)
+
+
+def restore(m, run_path, kind: str = "best.test"):
     chkpt = wandb_restore(f"checkpoints.{kind}", run_path)
     state_dict = torch.load(chkpt.name)
     m.load_state_dict(state_dict["model"])
@@ -133,6 +140,9 @@ class HParams:
             }
 
         return iter({**f(self.__class__), **f(self)}.items())
+
+    def clone(self):
+        return copy.copy(self)
 
 
 def load_hparams(path):
@@ -179,3 +189,9 @@ def wandb_restore(filename, run_path):
 def load_wandb_cfg(run_path):
     "Load model and train cfg from wandb"
     return load_hparams(wandb_restore("config.yaml", run_path))
+
+
+def unwrap(model):
+    "Model can be wrapped in (Distributed) DataParallel. Unwrap the model"
+    is_data_paralell = hasattr(model, "module")
+    return model.module if is_data_paralell else model

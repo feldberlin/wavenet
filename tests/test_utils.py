@@ -1,3 +1,4 @@
+import test_helpers as helpers
 import torch
 
 from wavenet import model, train, utils
@@ -78,3 +79,24 @@ def test_decode_with_zero_nucleus_is_equivalent_to_argmax():
     want = utils.decode_argmax(logits)
     got = utils.decode_nucleus(0.0)(logits)
     assert torch.equal(want, got)
+
+
+# checkpointing
+
+
+def test_checkpoint():
+    with helpers.tempdir() as tmp:
+        p = model.HParams()
+        m = model.Wavenet(p)
+        tp = train.HParams()
+        t = train.Trainer(m, [1, 2, 3], [4, 5], tp)
+        filename = tmp / "checkpoint"
+        utils.checkpoint("test", t.state(), tp, filename)
+        state = torch.load(filename)
+        assert "model" in state
+        assert "optimizer" in state
+        assert "scaler" in state
+        assert "schedule" in state
+        assert "epoch" in state
+        assert "best" in state
+        t.load_state(state)

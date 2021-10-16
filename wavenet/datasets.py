@@ -180,7 +180,9 @@ class Tracks(Dataset):
         self.n_samples_total = sum(t.duration for t in tracks)
         self.n_examples = 0
 
-        # build an index of track to cumulative starting index dataset[idx]
+        # position i in the offsets array corresponds to track i in this
+        # dataset. self.offsets[i] is the training example number (idx) in the
+        # logically concatenated dataset.
         self.offsets = [0]
         for t in tracks:
             duration = t.duration - cfg.sample_overlap_length
@@ -206,6 +208,7 @@ class Tracks(Dataset):
         @lru_cache()
         def meta(example_idx):
             "get the correct (TrackMeta, track_offset) for this example idx"
+            assert example_idx >= 0 and example_idx < len(self)
             for i, _ in enumerate(self.offsets):
                 if example_idx < self.offsets[i]:
                     track = self.tracks[i - 1]
@@ -251,14 +254,23 @@ class Tracks(Dataset):
             return y
 
     def __repr__(self):
-        return f"Tracks({self.root_dir})"
+        attrs = {
+            "path": str(self.root_dir),
+            "n_examples": self.n_examples,
+            "n_seconds": self.cfg.sample_size_ms() * self.n_examples / 1000,
+        }
+
+        return f"Tracks({ json.dumps(attrs, sort_keys=True) })"
 
 
 # Maestro 2.0.0
 
 
 def maestro(
-    root_dir: Path, year: int, cfg, cache_dir: typing.Optional[Path] = None
+    root_dir: Path,
+    cfg,
+    cache_dir: typing.Optional[Path] = None,
+    year: typing.Optional[int] = None,
 ) -> typing.Tuple[Tracks, Tracks]:
 
     tracks = []
@@ -274,7 +286,7 @@ def maestro(
             [
                 Path(t["audio_filename"])
                 for t in tracks
-                if t["year"] == year and t["split"] == split
+                if (year is None or t["year"] == year) and t["split"] == split
             ],
         )
 

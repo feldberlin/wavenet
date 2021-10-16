@@ -3,7 +3,6 @@ Training loop
 """
 
 import math
-import os
 import typing
 from collections import defaultdict
 
@@ -13,58 +12,77 @@ import torch.cuda.amp as amp
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm  # type: ignore
 
-import wandb  # type: ignore
 from wavenet import utils
 
 
 class Trainer:
-    """Train wavenet with mixed precision on a one cycle schedule."""
+    """Training loop."""
 
-    def __init__(self, model, trainset, testset, cfg, callback=None):
+    def __init__(
+        self,
+        model,
+        trainset,
+        testset,
+        cfg,
+        log=True,
+        train_sampler=None,
+        test_sampler=None,
+    ):
         self.model = model
         self.trainset = trainset
         self.testset = testset
         self.cfg = cfg
-        self.model_cfg = model.cfg
-        self.callback = callback
-        self.device = self.model_cfg.device()
-        self.model = torch.nn.DataParallel(self.model).to(self.device)
+        self.log = log
+        self.train_sampler = train_sampler
+        self.test_sampler = test_sampler
+        self.model_cfg = utils.unwrap(model).cfg
+        self.device = self.model_cfg.device
         self.scaler = amp.GradScaler(enabled=self.model_cfg.mixed_precision)
-        self.optimizer = self.cfg.optimizer(self.model)
+        self.optimizer = self.cfg.optimizer(utils.unwrap(model))
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
-        self.metrics = utils.init_wandb(model, cfg, repr(self.trainset))
-
-    def checkpoint(self, name, epoch):
-        base = wandb.run.dir if wandb.run.dir != "/" else "."
-        filename = os.path.join(base, self.cfg.ckpt_path(name))
-        torch.save(self._state(epoch), filename)
-        wandb.save(filename, base_path=base)
+        self.best = defaultdict(lambda: float("inf"))
+        self.epoch = 0
+        if log:
+            self.metrics = utils.init_wandb(
+                utils.unwrap(model), cfg, repr(self.trainset)
+            )
 
     def train(self):
         model, cfg, model_cfg = self.model, self.cfg, self.model_cfg
 
         # see gh #21
         torch.backends.cudnn.benchmark = True
+        self.model = self.model.to(self.device)
 
         def run_epoch(split):
             is_train = split == "train"
-            model.train(is_train)
             data = self.trainset if is_train else self.testset
+            sampler = self.train_sampler if is_train else self.test_sampler
+            model.train(is_train)
+
+            # must be called before data loader init
+            if sampler:
+                sampler.set_epoch(self.epoch)
+
+            # loader
             loader = DataLoader(
                 data,
-                shuffle=True,
+                shuffle=not sampler and not is_train,
                 pin_memory=True,
                 batch_size=cfg.batch_size,
                 num_workers=cfg.num_workers,
+                sampler=sampler,
             )
 
-            losses = []
+            # progress
+            no_pbar = not cfg.progress_bar
             pbar = (
-                tqdm(enumerate(loader), total=len(loader))
+                tqdm(enumerate(loader), total=len(loader), disable=no_pbar)
                 if is_train
                 else enumerate(loader)
             )
 
+            losses = []
             for it, (x, y, *_) in pbar:
 
                 x = x.to(self.device)
@@ -95,53 +113,60 @@ class Trainer:
                     else:
                         lr = cfg.learning_rate
 
-                    # logging
-                    msg = f"{epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
-                    pbar.set_description(msg)
-                    utils.log_wandb("learning rate", lr)
-                    utils.log_wandb("train loss", loss.item())
+                    # progress
+                    pbar.set_description(
+                        f"{self.epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
+                    )
 
-                if self.callback and it % cfg.callback_fq == 0:
-                    self.callback.tick(model, self.trainset, self.testset)
+                    # log
+                    self.logger("learning rate", lr)
+                    self.logger("train loss", loss.item())
 
             return float(np.mean(losses))
 
-        best = defaultdict(lambda: float("inf"))
         for epoch in range(cfg.max_epochs):
-
+            self.epoch = epoch
             train_loss = run_epoch("train")
-            if train_loss < best["train"]:
-                best["train"] = train_loss
-                self.checkpoint("best.train", epoch)
+            if train_loss < self.best["train"]:
+                self.best["train"] = train_loss
+                self.checkpoint("best.train")
 
             if self.testset is not None:
                 test_loss = run_epoch("test")
-                utils.log_wandb("test loss", test_loss)
-                if test_loss < best["test"]:
-                    best["test"] = test_loss
-                    self.checkpoint("best.test", epoch)
+                self.logger("test loss", test_loss)
+                if test_loss < self.best["test"]:
+                    self.best["test"] = test_loss
+                    self.checkpoint("best.test")
 
-    def restore(self, run_path, kind="train"):
-        chkpt = utils.wandb_restore(f"checkpoints.{kind}", run_path)
-        state_dict = torch.load(chkpt.name)
-        self._model().load_state_dict(state_dict["model"])
-        self.optimizer.load_state_dict(state_dict["optimizer"])
-        self.scaler.load_state_dict(state_dict["scaler"])
-        self.schedule.load_state_dict(state_dict["schedule"])
-        return state_dict["epoch"]
+    def logger(self, key, value):
+        if self.log:
+            utils.log_wandb(key, value)
 
-    def _model(self):
-        is_data_paralell = hasattr(self.model, "module")
-        return self.model.module if is_data_paralell else self.model
+    def checkpoint(self, name):
+        if self.log:
+            utils.checkpoint(name, self.state(), self.cfg)
 
-    def _state(self, epoch):
+    def state(self):
         return {
-            "model": self._model().state_dict(),
+            "model": utils.unwrap(self.model).state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "scaler": self.scaler.state_dict(),
             "schedule": self.schedule.state_dict(),
-            "epoch": epoch,
+            "epoch": self.epoch,
+            "best": dict(self.best),
         }
+
+    def load_state(self, state):
+        utils.unwrap(self.model).load_state_dict(state["model"])
+        self.optimizer.load_state_dict(state["optimizer"])
+        self.scaler.load_state_dict(state["scaler"])
+        self.schedule.load_state_dict(state["schedule"])
+        self.epoch = state["epoch"]
+        self.best = state["best"]
+
+    def finish(self):
+        if self.log:
+            self.metrics.finish()
 
 
 class HParams(utils.HParams):
@@ -170,11 +195,20 @@ class HParams(utils.HParams):
     # how many steps before the callback is invoked
     callback_fq: int = 8
 
+    # how many os process spaces is training split into
+    num_shards: int = 1
+
     # how many data loader threads to use
     num_workers: int = 0
 
     # is this a learning rate finder run
     finder: bool = False
+
+    # random seed
+    seed: int = 5763
+
+    # show progress bar
+    progress_bar: bool = True
 
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
@@ -184,8 +218,16 @@ class HParams(utils.HParams):
         return f"checkpoints.{name}"
 
     def n_steps(self, n_examples):
-        batch_size = min(n_examples, self.batch_size)
+        batch_size = min(n_examples, self.total_batch_size())
         return math.ceil(n_examples / batch_size) * self.max_epochs
+
+    def shard(self, num_shards):
+        self.num_shards = num_shards
+        self.batch_size = int(self.batch_size / num_shards)
+        self.num_workers = int(self.num_workers / num_shards)
+
+    def total_batch_size(self):
+        return self.batch_size * self.num_shards
 
     def optimizer(self, model):
         return torch.optim.AdamW(
