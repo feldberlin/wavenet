@@ -15,10 +15,9 @@ class DP:
     """Training loop with nn.DataParallel. One machine only."""
 
     def __init__(self, model, trainset, testset, cfg, log=True):
+        model = nn.DataParallel(model)
+        self.trainer = train.Trainer(model, trainset, testset, cfg, log)
         self.metrics = self.trainer.metrics if log else None
-        self.trainer = train.Trainer(
-            nn.DataParallel(model), trainset, testset, cfg, log
-        )
 
     def train(self):
         self.trainer.train()
