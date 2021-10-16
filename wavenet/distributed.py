@@ -74,7 +74,7 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
         testset,
         cfg,
         log=is_leader,
-        train_sampler=train_sampler
+        train_sampler=train_sampler,
     )
 
     # don't forget to train

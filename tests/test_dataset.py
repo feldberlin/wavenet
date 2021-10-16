@@ -90,7 +90,7 @@ def test_tracks_overlapped_receptive_fields():
 
 def test_maestro():
     root_dir = Path("fixtures/maestro")
-    train, test = datasets.maestro(root_dir, 2018, model.HParams())
+    train, test = datasets.maestro(root_dir, model.HParams(), year=2018)
     assert len(train) == 1
     assert len(test) == 1
 

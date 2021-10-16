@@ -267,7 +267,10 @@ class Tracks(Dataset):
 
 
 def maestro(
-    root_dir: Path, year: int, cfg, cache_dir: typing.Optional[Path] = None
+    root_dir: Path,
+    cfg,
+    cache_dir: typing.Optional[Path] = None,
+    year: typing.Optional[int] = None,
 ) -> typing.Tuple[Tracks, Tracks]:
 
     tracks = []
@@ -283,7 +286,7 @@ def maestro(
             [
                 Path(t["audio_filename"])
                 for t in tracks
-                if t["year"] == year and t["split"] == split
+                if (year is None or t["year"] == year) and t["split"] == split
             ],
         )
 
