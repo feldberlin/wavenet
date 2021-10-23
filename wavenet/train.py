@@ -9,6 +9,7 @@ from collections import defaultdict
 import numpy as np  # type: ignore
 import torch
 import torch.cuda.amp as amp
+import wandb  # type: ignore
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm  # type: ignore
 
@@ -42,6 +43,7 @@ class Trainer:
         self.schedule = utils.lr_schedule(cfg, len(trainset), self.optimizer)
         self.best = defaultdict(lambda: float("inf"))
         self.epoch = 0
+        self.trainstep = 0
         if log:
             self.metrics = utils.init_wandb(
                 utils.unwrap(model), cfg, repr(self.trainset)
@@ -95,6 +97,10 @@ class Trainer:
                         losses.append(loss.item())
 
                 if is_train:
+
+                    # track expcitly for wandb logging
+                    self.trainstep += 1
+
                     # see gh #21
                     for param in model.parameters():
                         param.grad = None
@@ -109,38 +115,43 @@ class Trainer:
 
                     if self.schedule:
                         self.schedule.step()
-                        lr = self.schedule.get_last_lr()[0]
+                        last_lr = self.schedule.get_last_lr()[0]
                     else:
-                        lr = cfg.learning_rate
+                        last_lr = cfg.learning_rate
 
                     # progress
                     pbar.set_description(
-                        f"{self.epoch+1}:{it} loss {loss.item():.5f} lr {lr:e}"
+                        f"{self.epoch}:{it} {loss.item():.5f} lr {last_lr:e}"
                     )
-
-                    # log
-                    self.logger("learning rate", lr)
-                    self.logger("train loss", loss.item())
+                    self.logger(
+                        {
+                            "epoch": self.epoch,
+                            "lr": last_lr,
+                            "train/loss": loss.item(),
+                            "step": self.trainstep,
+                        }
+                    )
 
             return float(np.mean(losses))
 
         for epoch in range(cfg.max_epochs):
             self.epoch = epoch
             train_loss = run_epoch("train")
+            self.logger({"train/epoch-loss": train_loss})
             if train_loss < self.best["train"]:
                 self.best["train"] = train_loss
                 self.checkpoint("best.train")
 
             if self.testset is not None:
                 test_loss = run_epoch("test")
-                self.logger("test loss", test_loss)
+                self.logger({"test/epoch-loss": test_loss})
                 if test_loss < self.best["test"]:
                     self.best["test"] = test_loss
                     self.checkpoint("best.test")
 
-    def logger(self, key, value):
+    def logger(self, metrics):
         if self.log:
-            utils.log_wandb(key, value)
+            wandb.log(metrics, step=self.trainstep)
 
     def checkpoint(self, name):
         if self.log:
@@ -153,6 +164,7 @@ class Trainer:
             "scaler": self.scaler.state_dict(),
             "schedule": self.schedule.state_dict(),
             "epoch": self.epoch,
+            "trainstep": self.trainstep,
             "best": dict(self.best),
         }
 
@@ -162,6 +174,7 @@ class Trainer:
         self.scaler.load_state_dict(state["scaler"])
         self.schedule.load_state_dict(state["schedule"])
         self.epoch = state["epoch"]
+        self.trainstep = state["trainstep"]
         self.best = state["best"]
 
     def finish(self):
