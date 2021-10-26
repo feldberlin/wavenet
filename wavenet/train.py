@@ -125,9 +125,9 @@ class Trainer:
                     )
                     self.logger(
                         {
-                            "epoch": self.epoch,
-                            "lr": last_lr,
+                            "train/lr": last_lr,
                             "train/loss": loss.item(),
+                            "epoch": self.epoch,
                             "step": self.trainstep,
                         }
                     )
@@ -137,17 +137,19 @@ class Trainer:
         for epoch in range(cfg.max_epochs):
             self.epoch = epoch
             train_loss = run_epoch("train")
-            self.logger({"train/epoch-loss": train_loss})
+            self.logger({"train/loss-epoch": train_loss})
             if train_loss < self.best["train"]:
                 self.best["train"] = train_loss
                 self.checkpoint("best.train")
 
             if self.testset is not None:
                 test_loss = run_epoch("test")
-                self.logger({"test/epoch-loss": test_loss})
+                self.logger({"test/loss-epoch": test_loss})
                 if test_loss < self.best["test"]:
                     self.best["test"] = test_loss
                     self.checkpoint("best.test")
+
+        self.finish()
 
     def logger(self, metrics):
         if self.log:

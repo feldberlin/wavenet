@@ -22,10 +22,6 @@ class DP:
     def train(self):
         self.trainer.train()
 
-    def finish(self):
-        if self.metrics:
-            self.metrics.finish()
-
 
 def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
     "Worker for DPP. This launches a single train.Trainer()"
@@ -79,6 +75,9 @@ def worker(gpu: int, ngpus: int, port: int, model, trainset, testset, cfg):
     # don't forget to train
     t.train()
 
+    # close shop
+    dist.destroy_process_group()
+
 
 class DDP:
     """Training loop with nn.DistributedDataParallel. One machine only."""
@@ -107,6 +106,3 @@ class DDP:
                 self.cfg.clone(),
             ),
         )
-
-    def finish(self):
-        dist.destroy_process_group()
