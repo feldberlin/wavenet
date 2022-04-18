@@ -3,6 +3,7 @@ Wavenet https://arxiv.org/pdf/1609.03499.pdf
 """
 
 import hashlib
+import math
 
 import torch
 import torch.cuda.amp as amp
@@ -71,6 +72,9 @@ class Wavenet(nn.Module):
             bn=cfg.batch_norm,
         )
 
+        # initialise parameters
+        reset_parameters(self)
+
         # load a checkpoint
         if run_path:
             utils.restore(self, run_path)
@@ -98,6 +102,7 @@ class Wavenet(nn.Module):
             for block in self.layers:
                 x, s = block(x)
                 skips += s
+
             x = F.relu(skips)
 
             # dense
@@ -121,7 +126,8 @@ class InputEmbedding(nn.Embedding):
     """
 
     def __init__(self, n_classes: int, n_dims: int, n_audio_chans: int):
-        super().__init__(n_classes, n_dims, padding_idx=0)  # see gh issue #3
+        # padding: see gh issue #3
+        super().__init__(n_classes, n_dims, padding_idx=0)
 
     def forward(self, y):
         N, C, W = y.shape
@@ -241,6 +247,59 @@ class ResBlock(nn.Module):
     def forward(self, x):
         gated = F.glu(self.conv(x), dim=1)
         return self.res1x1(gated) + x, self.skip1x1(gated)
+
+
+def reset_parameters(m: Wavenet):
+    """Init weights and biases.
+
+    See gh #11 for context.
+    """
+
+    @torch.no_grad()
+    def init(layer):
+
+        if type(layer) == InputEmbedding:
+            print('normalising input embeddings')
+            layer.weight.normal_(0, 1)
+
+        if type(layer) == Conv1d:
+            if layer.causal and layer.shifted:
+                print('normalising causal shifted conv1d')
+                c_out, c_in, k = dims(layer)
+                layer.weight.normal_(0, math.sqrt(2 / (k * c_in)))
+                if not m.cfg.batch_norm:
+                    layer.bias.zero_()
+            else:
+                print('normalising conv1d')
+                c_out, c_in, k = dims(layer)
+                layer.weight.normal_(0, math.sqrt(2 / (k * c_out)))
+                if not m.cfg.batch_norm:
+                    layer.bias.zero_()
+
+        if type(layer) == ResBlock:
+            print('normalising resblock')
+            c_out, c_in, k = dims(layer.conv)
+            layer.conv.weight.normal_(0, math.sqrt(2 / (k * c_in)))
+            c_out, c_in, k = dims(layer.res1x1)
+            layer.res1x1.weight.normal_(0, math.sqrt(1 / (k * c_in)))
+            c_out, c_in, k = dims(layer.skip1x1)
+            layer.skip1x1.weight.normal_(0, math.sqrt(1 / (k * c_in)))
+            if not m.cfg.batch_norm:
+                layer.conv.bias.zero_()
+                layer.res1x1.bias.zero_()
+                layer.skip1x1.bias.zero_()
+
+    def dims(c: nn.Conv1d):
+        k, *_ = c.kernel_size
+        c_out, c_in, *_ = c.weight.shape
+        return c_out, c_in, k
+
+    for layer in m.children():
+        if type(layer) == nn.ModuleList:
+            for module_layer in layer.children():
+                init(module_layer)
+        else:
+            init(layer)
 
 
 class HParams(utils.HParams):
