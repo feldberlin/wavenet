@@ -114,8 +114,8 @@ def test_wavenet_modules_registered():
     m = model.Wavenet(model.HParams(n_layers=1, dilation_stacks=1))
     got = list(m.state_dict().keys())
     want = [
-        "shifted.weight",
-        "shifted.bias",
+        "prenet.weight",
+        "prenet.bias",
         "layers.0.conv.weight",
         "layers.0.conv.bias",
         "layers.0.res1x1.weight",
@@ -137,8 +137,8 @@ def test_wavenet_modules_registered_input_embedded():
     got = list(m.state_dict().keys())
     want = [
         "embed.weight",
-        "shifted.weight",
-        "shifted.bias",
+        "prenet.weight",
+        "prenet.bias",
         "layers.0.conv.weight",
         "layers.0.conv.bias",
         "layers.0.res1x1.weight",

@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-from wavenet import datasets, model, sample, train, utils
+from wavenet import datasets, model, sample, utils
 
 
 def test_generator_init():

@@ -84,7 +84,7 @@ class Generator(model.Wavenet):
         self.cfg = m.cfg
         if self.cfg.embed_inputs:
             self.embed = m.embed
-        self.shifted = Memo(m.shifted)
+        self.prenet = Memo(m.prenet)
         self.layers = nn.ModuleList([ResBlock(block) for block in m.layers])
         self.a1x1 = to_conv1d(m.a1x1)
         self.b1x1 = to_conv1d(m.b1x1)
