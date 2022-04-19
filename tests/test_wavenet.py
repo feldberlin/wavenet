@@ -74,7 +74,8 @@ def test_hparams_override():
 
 def test_wavenet_output_shape():
     m = model.Wavenet(model.HParams())
-    y = torch.randint(256, (3, 2, 4))
+    receptive_field_size = m.cfg.receptive_field_size()
+    y = torch.randint(256, (3, 2, 4 + receptive_field_size - 1))
     x = y.float()
     y_hat, _ = m.forward(x, y)
     assert y_hat.shape == (3, 256, 2, 4)

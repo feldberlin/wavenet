@@ -78,19 +78,32 @@ class Wavenet(nn.Module):
         There are C stereo input channels, W samples in each example. Logits
         are produced in (N, K, C, W) form, where K is the number of classes
         as determined by the audio bit depth.
+
+        Each forward pass receives W samples. These are scanned by the
+        network, which consumes `receptive_field_size` samples before
+        outputting values, leading to `W - receptive_field_size + 1`
+        output samples. The first output sample is to be interpreted as
+        timestep `receptive_field_size + 1`.
+
+        This also means that W must always be at least as large as the
+        receptive field.
         """
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
             N, C, W = x.shape  # N, C=self.cfg.n_input_chans(), W
+            receptive_field_size = self.cfg.receptive_field_size()
+
+            # invariant for the forward pass
+            assert W >= receptive_field_size, "W < receptive_field_size"
 
             # embed each categorical sample
             if self.cfg.embed_inputs:
                 x = self.embed(y)  # N, C, W
 
-            # hide the present
+            # process inputs
             x = self.prenet(x)  # N, C, W
 
-            # residual
+            # residuals
             skips = 0
             for block in self.layers:
                 x, s = block(x)
@@ -102,16 +115,9 @@ class Wavenet(nn.Module):
             x = self.b1x1(x)  # N, C, W in and out
             x = x.view(N, self.cfg.n_classes, self.cfg.n_audio_chans, W)
 
-            # FIXME(rk): name this properly
-            # FIXME(rk): are we throwing away trailing computation instead?
-            # FIXME(rk): input has to be > receptive field size? check
-            # FIXME(rk): clearly document what is going on here
-            # shift
-            shift_by = self.cfg.receptive_field_size()
-            x = F.pad(x, (shift_by, 0))
-
             loss = None
             if y is not None:
+                y = y[:, :, receptive_field_size:]  # predictions start here
                 loss = F.cross_entropy(x, y)
 
             return x, loss
