@@ -208,6 +208,8 @@ class Tracks(Dataset):
         @lru_cache()
         def meta(example_idx):
             "get the correct (TrackMeta, track_offset) for this example idx"
+            # FIXME(rk): inject leading silence between each track
+            # FIXME(rk): overlap batches by receptive field size.
             assert example_idx >= 0 and example_idx < len(self)
             for i, _ in enumerate(self.offsets):
                 if example_idx < self.offsets[i]:

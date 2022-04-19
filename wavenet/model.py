@@ -31,14 +31,11 @@ class Wavenet(nn.Module):
                 cfg.n_classes, cfg.n_chans_embed, cfg.n_audio_chans
             )
 
-        # hide the present time step t in the input
         # go from input straight to the network channel depth
-        self.shifted = Conv1d(
+        self.prenet = Conv1d(
             cfg.n_input_chans(),
             cfg.n_chans,
             kernel_size=cfg.kernel_size,
-            causal=True,
-            shifted=True,
             relu=False,
             bn=cfg.batch_norm,
         )
@@ -81,19 +78,32 @@ class Wavenet(nn.Module):
         There are C stereo input channels, W samples in each example. Logits
         are produced in (N, K, C, W) form, where K is the number of classes
         as determined by the audio bit depth.
+
+        Each forward pass receives W samples. These are scanned by the
+        network, which consumes `receptive_field_size` samples before
+        outputting values, leading to `W - receptive_field_size + 1`
+        output samples. The first output sample is to be interpreted as
+        timestep `receptive_field_size + 1`.
+
+        This also means that W must always be at least as large as the
+        receptive field.
         """
 
         with amp.autocast(enabled=self.cfg.mixed_precision):
             N, C, W = x.shape  # N, C=self.cfg.n_input_chans(), W
+            receptive_field_size = self.cfg.receptive_field_size()
+
+            # invariant for the forward pass
+            assert W >= receptive_field_size, "W < receptive_field_size"
 
             # embed each categorical sample
             if self.cfg.embed_inputs:
                 x = self.embed(y)  # N, C, W
 
-            # hide the present
-            x = self.shifted(x)  # N, C, W
+            # process inputs
+            x = self.prenet(x)  # N, C, W
 
-            # residual
+            # residuals
             skips = 0
             for block in self.layers:
                 x, s = block(x)
@@ -107,6 +117,7 @@ class Wavenet(nn.Module):
 
             loss = None
             if y is not None:
+                y = y[:, :, receptive_field_size:]  # predictions start here
                 loss = F.cross_entropy(x, y)
 
             return x, loss
@@ -131,27 +142,7 @@ class InputEmbedding(nn.Embedding):
 
 
 class Conv1d(nn.Conv1d):
-    """Conv1d with causal and shifted modes.
-
-    Causal 1d convolution
-
-    Left pads s.t. output timesteps depend only on past or present inputs. For
-    example, with a kernel size 2 and a dilation of 1, we need to left pad by
-    1, so that the first cross product at timestep t=0 uses only the left
-    padded zero, and timestep t=0 as input. These units are used everywhere
-    except for the first layer, and ensure that information flows directly
-    upward from timestep t. The reason we don't left-pad by the full kernel
-    size is that with many layers, output timestep t would no longer depend on
-    the input at t-1. See below for details on masking t.
-
-    Shifted 1d convolution
-
-    Shift input one to the right then do a causal convolution.
-    Shifting prepends 0 and removes the last element. This convolution can be
-    used as an initial layer in a causal stack in order to remove a dependency
-    on the current time step t, so we can model P(x_t|x_(t-1),x_(t-2)...,
-    x_t0) instead of accidentally modelling P(x_t|x_t, x_(t-1)..., x_t0).
-    """
+    """Conv1d with batch norm and activation."""
 
     def __init__(
         self,
@@ -159,8 +150,6 @@ class Conv1d(nn.Conv1d):
         out_channels: int,
         kernel_size: int,
         dilation: int = 1,
-        causal: bool = False,
-        shifted: bool = False,
         relu: bool = False,
         bn: bool = False,
     ):
@@ -171,26 +160,12 @@ class Conv1d(nn.Conv1d):
             dilation=dilation,
             bias=not bn,
         )
-        self.shifted = shifted
-        self.causal = causal
         self.relu = relu
         self.bn = bn
         if bn:
             self.norm = nn.BatchNorm1d(out_channels)
 
     def forward(self, x):
-        kernel = self.kernel_size[0]
-        dilation = self.dilation[0]
-
-        if self.shifted:
-            # remove dependency on current timestep
-            x = F.pad(x, (1, -1))
-
-        if self.shifted or self.causal:
-            # left pad to depend only on past or current timesteps
-            x = F.pad(x, ((kernel - 1) * dilation, 0))
-
-        # run the layer
         x = super().forward(x)
         if self.bn:
             x = self.norm(x)
@@ -215,7 +190,6 @@ class ResBlock(nn.Module):
             cfg.n_chans_res * 2,
             kernel_size=cfg.kernel_size,
             dilation=dilation,
-            causal=True,
             relu=False,
             bn=cfg.batch_norm,
         )
